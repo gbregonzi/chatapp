@@ -10,8 +10,8 @@ __pycache__/
 .Python
 build/
 chatserver/build/
-chatsocket/build/
-chatclient/build-debug  /
+clientsocket/build/
+clientsocket/build-debug/
 develop-eggs/
 dist/
 downloads/
