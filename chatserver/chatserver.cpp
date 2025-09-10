@@ -1,21 +1,46 @@
-#include <arpa/inet.h>
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #include <windows.h>
+    //#pragma comment(lib, "ws2_32.lib")
+    typedef int socklen_t;
+    #define CLOSESOCKET closesocket
+    //#define GETSOCKETERRNO() (WSAGetLastError())
+#else
+    #include <arpa/inet.h>
+    #include <unistd.h>
+    #include <netdb.h>
+    #include <sys/socket.h>
+    #include <sys/types.h>
+    #define CLOSESOCKET close
+    //#define GETSOCKETERRNO() (errno)
+#endif
 #include <iostream>
 #include <cstring>
-#include <unistd.h>
-#include <netdb.h>
 #include <thread>
 #include <chrono>
 #include <vector>
 #include <algorithm>
 
-#include "multThreadWebServer.h"
+#include "chatserver.h"
+
+using namespace std;
 
 Socket::Socket()
 {
+#ifdef _WIN32
+    WSADATA d;
+    if (WSAStartup(MAKEWORD(2,2), &d)) {
+        cerr << "Failed to initialize Winsock!" << endl;
+        exit(EXIT_FAILURE);
+    }
+#endif
+
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket < 0)
     {
         cerr << "Socket creation failed!" << std::endl;
+        getError(errno);
         exit(EXIT_FAILURE);
     }
 
@@ -27,7 +52,7 @@ Socket::Socket()
     serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
     serverAddr.sin_port = htons(PORT);
 
-    int optval{1};
+    char optval{1};
     int optlen{sizeof(optval)};
     if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) < 0)
     {
@@ -160,9 +185,11 @@ void Socket::listenClientConnections()
         }
         if (!getClientIP(clientSocket))
         {
-            close(clientSocket);
+            CLOSESOCKET(clientSocket);
             continue;
-        }        void serverSendBroadcastMessage();
+        }        
+        
+        void serverSendBroadcastMessage();
 
 
         cout << "Client connected successfully." << endl;
@@ -174,7 +201,10 @@ void Socket::listenClientConnections()
 
 Socket::~Socket()
 {
-    close(serverSocket);
+    CLOSESOCKET(serverSocket);
+#ifdef _WIN32
+    WSACleanup();
+#endif
     cout << "Server socket closed." << endl;
 }
 
@@ -203,7 +233,7 @@ void Socket::readFromClient(int sd, atomic<bool> &chatActive)
     while (chatActive.load())
     {
         memset(buffer, 0, sizeof(buffer));
-        ssize_t bytesRead = read(sd, buffer, sizeof(buffer) - 1);
+        ssize_t bytesRead = recv(sd, buffer, sizeof(buffer) - 1, 0);
         if (bytesRead < 0)
         {
             cerr << "Read from client failed!" << endl;
@@ -231,7 +261,7 @@ void Socket::readFromClient(int sd, atomic<bool> &chatActive)
         }
     }
     chatActive.store(false);
-    close(sd);
+    CLOSESOCKET(sd);
     cout << "Chat ended. Client socket closed." << endl;
 }
 

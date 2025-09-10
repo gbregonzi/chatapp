@@ -1,9 +1,13 @@
 #include <string_view>
-#include <netinet/in.h>
 #include <atomic>
 #include <queue>
 #include <unordered_set>
 #include <mutex>
+#ifdef _WIN32
+    #include <winsock2.h>
+#else
+    #include <netinet/in.h>
+#endif
 
 using namespace std;
 

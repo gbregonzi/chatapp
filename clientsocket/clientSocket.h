@@ -1,8 +1,12 @@
 #include <iostream>
 #include <string>
-#include <arpa/inet.h>
 #include <unistd.h>
 #include <atomic>
+#ifdef _WIN32
+    #include <winsock2.h>
+#else
+    #include <netinet/in.h>
+#endif
 
 using namespace std;
 

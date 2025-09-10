@@ -11,6 +11,12 @@ add_executable(chatserver ${SOURCES})
 
 set_property(TARGET chatserver PROPERTY CMAKE_CXX_STANDARD 17)
 
+
 # Link with pthread if needed (for sockets)
-find_package(Threads REQUIRED)
-target_link_libraries(chatserver PRIVATE Threads::Threads)
+#find_package(Threads REQUIRED)
+#target_link_libraries(chatserver PRIVATE Threads::Threads)
+
+# Link Winsock library on Windows
+if(WIN32)
+    target_link_libraries(chatserver ws2_32)
+endif()

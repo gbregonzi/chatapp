@@ -9,6 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+build-debug/
 chatserver/build/
 chatserver/build-debug/
 clientsocket/build/

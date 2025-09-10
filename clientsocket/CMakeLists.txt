@@ -12,5 +12,9 @@ add_executable(clientsocket ${SOURCES})
 set_property(TARGET clientsocket PROPERTY CMAKE_CXX_STANDARD 17)
 
 # Link with pthread if needed (for sockets)
-find_package(Threads REQUIRED)
-target_link_libraries(clientsocket PRIVATE Threads::Threads)
+#find_package(Threads REQUIRED)
+#target_link_libraries(clientsocket PRIVATE Threads::Threads)
+# Link Winsock library on Windows
+if(WIN32)
+    target_link_libraries(clientsocket ws2_32)
+endif()
