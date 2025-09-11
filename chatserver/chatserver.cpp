@@ -2,7 +2,6 @@
     #include <winsock2.h>
     #include <ws2tcpip.h>
     #include <windows.h>
-    //#pragma comment(lib, "ws2_32.lib")
     typedef int socklen_t;
     #define CLOSESOCKET closesocket
     //#define GETSOCKETERRNO() (WSAGetLastError())
@@ -24,9 +23,12 @@
 
 #include "chatserver.h"
 
+constexpr int SUSCESS = 0;
+constexpr int FAILURE = -1;
+
 using namespace std;
 
-Socket::Socket()
+ServerSocket::ServerSocket()
 {
 #ifdef _WIN32
     WSADATA d;
@@ -36,8 +38,8 @@ Socket::Socket()
     }
 #endif
 
-    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverSocket < 0)
+    m_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (m_sockfd < 0)
     {
         cerr << "Socket creation failed!" << std::endl;
         getError(errno);
@@ -46,15 +48,15 @@ Socket::Socket()
 
     cout << "Server socket created successfully." << std::endl;
 
-    memset(&serverAddr, 0, sizeof(serverAddr));
+    memset(&m_ServerAddr, 0, sizeof(m_ServerAddr));
 
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    serverAddr.sin_port = htons(PORT);
+    m_ServerAddr.sin_family = AF_INET;
+    m_ServerAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    m_ServerAddr.sin_port = htons(PORT);
 
     char optval{1};
     int optlen{sizeof(optval)};
-    if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) < 0)
+    if (setsockopt(m_sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) < 0)
     {
         cerr << "Setsockopt failed!" << endl;
         getError(errno);
@@ -67,13 +69,13 @@ Socket::Socket()
     while (attempts < MAX_PORT_TRIES)
     {
 
-        if (bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0)
+        if (bind(m_sockfd, (struct sockaddr *)&m_ServerAddr, sizeof(m_ServerAddr)) < 0)
         {
             while (true)
             {
                 this_thread::sleep_for(chrono::milliseconds(500));
                 randomPort = PORT + (rand() % 10); // Random port between 8080 and 8090
-                serverAddr.sin_port = htons(randomPort);
+                m_ServerAddr.sin_port = htons(randomPort);
                 if (find(triedPorts.begin(), triedPorts.end(), randomPort) == triedPorts.end())
                 {
                     triedPorts.push_back(randomPort);
@@ -98,32 +100,35 @@ Socket::Socket()
 
     cout << "Server bound to port " << randomPort << "." << endl;
 
-    if (listen(serverSocket, MAX_QUEUE_CONNECTINON) < 0)
+    if (listen(m_sockfd, MAX_QUEUE_CONNECTINON) < 0)
     {
         cerr << "Listen failed!" << endl;
         getError(errno);
         exit(EXIT_FAILURE);
     }
     getHostNameIP();
-    isConnected = true;
+    m_IsConnected.store(true);
     threadBradcastMessage();
-    serverSendBroadcastMessage();
-
+    //serverSendBroadcastMessage();
 }
 
-void Socket::getError(int errorCode)
+void ServerSocket::getError(int errorCode)
 {
     cout << "Error code: " << errorCode << endl;
     cout << "Error description: " << strerror(errorCode) << endl
          << endl;
 }
 
-bool Socket::getIsConnected() const
+bool ServerSocket::getIsConnected() const
 {
-    return isConnected;
+    return m_IsConnected.load();
+}
+void ServerSocket::setIsConnected(bool isConnected) 
+{
+    m_IsConnected.store(isConnected);
 }
 
-void Socket::getHostNameIP()
+void ServerSocket::getHostNameIP()
 {
     char hostname[BUFFER_SIZE];
     if (gethostname(hostname, sizeof(hostname)) == 0)
@@ -153,7 +158,7 @@ void Socket::getHostNameIP()
     cout << "Host IP: " << ip << endl;
 }
 
-bool Socket::getClientIP(int sd)
+bool ServerSocket::getClientIP(int sd)
 {
     char ip4[INET_ADDRSTRLEN];
     struct sockaddr_in clientAddr;
@@ -169,14 +174,14 @@ bool Socket::getClientIP(int sd)
     return false;
 }
 
-void Socket::listenClientConnections()
+void ServerSocket::listenClientConnections()
 {
     while (true)
     {
         cout << "\n**********************************************" << endl;
         cout << "Server is ready to accept connections." << endl;
         socklen_t clientAddrLen = sizeof(sockaddr);
-        auto clientSocket = accept(serverSocket, (struct sockaddr *)&serverAddr, &clientAddrLen);
+        auto clientSocket = accept(m_sockfd, (struct sockaddr *)&m_ServerAddr, &clientAddrLen);
         if (clientSocket < 0)
         {
             cerr << "Accept failed!" << endl;
@@ -185,30 +190,27 @@ void Socket::listenClientConnections()
         }
         if (!getClientIP(clientSocket))
         {
-            CLOSESOCKET(clientSocket);
+            closeSocket(clientSocket);
             continue;
         }        
         
-        void serverSendBroadcastMessage();
-
-
         cout << "Client connected successfully." << endl;
         atomic<bool> chatActive{true};
         clientSockets.insert(clientSocket);
-        readFromClientThread(clientSocket, chatActive);
+        //readFromClientThread(clientSocket, chatActive);
     }
 }
 
-Socket::~Socket()
+ServerSocket::~ServerSocket()
 {
-    CLOSESOCKET(serverSocket);
+    CLOSESOCKET(m_sockfd);
 #ifdef _WIN32
     WSACleanup();
 #endif
     cout << "Server socket closed." << endl;
 }
 
-bool Socket::writeToClient(int sd, const string_view message)
+bool ServerSocket::writeToClient(int sd, const string_view message)
 {
     ssize_t bytesSent = send(sd, message.data(), message.length(), 0);
     if (bytesSent < 0)
@@ -221,54 +223,84 @@ bool Socket::writeToClient(int sd, const string_view message)
     //cout << "Sent to client: " << message << endl;
 }
 
-void Socket::readFromClientThread(int sd, atomic<bool> &chatActive)
-{
-    thread readThread(&Socket::readFromClient, this, sd, ref(chatActive));
-    readThread.detach();
-}
-
-void Socket::readFromClient(int sd, atomic<bool> &chatActive)
-{
+ssize_t ServerSocket::readMessage(string &message){
     char buffer[BUFFER_SIZE];
-    while (chatActive.load())
+    memset(buffer, 0, sizeof(buffer));
+    ssize_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
+    if (bytes_received > 0)
     {
-        memset(buffer, 0, sizeof(buffer));
-        ssize_t bytesRead = recv(sd, buffer, sizeof(buffer) - 1, 0);
-        if (bytesRead < 0)
-        {
-            cerr << "Read from client failed!" << endl;
-            getError(errno);
-            break;
-        }
-        else if (bytesRead == 0)
-        {
-            cout << "Client disconnected." << endl;
-            break;
-        }
-        if (strcmp(buffer, "exit") == 0)
-        {
-            cout << "Client requested to end chat." << endl;
-            break;
-        }
-        getClientIP(sd);
+        buffer[bytes_received] = '\0'; // Null-terminate the received data
         cout << "Received from client: " << buffer << endl;
-        for (const auto &clientSd : clientSockets)
-        {
-            if (clientSd != sd) // Avoid sending the message back to the sender
-            {
-                broacastMessageQueue.push(make_pair(clientSd, string(buffer)));
-            }
-        }
+        message = string(buffer);
+        return bytes_received;
     }
-    chatActive.store(false);
-    CLOSESOCKET(sd);
-    cout << "Chat ended. Client socket closed." << endl;
+    else if (bytes_received == 0)
+    {
+        cout << "Client closed the connection." << endl;
+    }
+    else if (strcmp(buffer, "exit") == 0)
+    {
+        cout << "Exit command received. Closing connection." << endl;
+    }
+    else
+    {
+        cerr << "Error receiving data from client." << endl;
+    }
+    return -1; // Indicate error or connection closed
 }
 
-void Socket::threadBradcastMessage()
+ssize_t ServerSocket::getClientCount(){
+    return clientSockets.size();
+}
+
+// void ServerSocket::readFromClientThread(int sd, atomic<bool> &chatActive)
+// {
+//     thread readThread(&ServerSocket::readFromClient, this, sd, ref(chatActive));
+//     readThread.detach();
+// }
+
+// void ServerSocket::readFromClient(int sd, atomic<bool> &chatActive)
+// {
+//     char buffer[BUFFER_SIZE];
+//     while (chatActive.load())
+//     {
+//         memset(buffer, 0, sizeof(buffer));
+//         ssize_t bytesRead = recv(sd, buffer, sizeof(buffer) - 1, 0);
+//         if (bytesRead < 0)
+//         {
+//             cerr << "Read from client failed!" << endl;
+//             getError(errno);
+//             break;
+//         }
+//         else if (bytesRead == 0)
+//         {
+//             cout << "Client disconnected." << endl;
+//             break;
+//         }
+//         if (strcmp(buffer, "exit") == 0)
+//         {
+//             cout << "Client requested to end chat." << endl;
+//             break;
+//         }
+//         getClientIP(sd);
+//         cout << "Received from client: " << buffer << endl;
+//         for (const auto &clientSd : clientSockets)
+//         {
+//             if (clientSd != sd) // Avoid sending the message back to the sender
+//             {
+//                 broacastMessageQueue.push(make_pair(clientSd, string(buffer)));
+//             }
+//         }
+//     }
+//     chatActive.store(false);
+//     CLOSESOCKET(sd);
+//     cout << "Chat ended. Client socket closed." << endl;
+// }
+
+void ServerSocket::threadBradcastMessage()
 {
     thread readThread([this]() {
-        while (isConnected.load())
+        while (m_IsConnected.load())
         {
             if (!broacastMessageQueue.empty())
             {
@@ -290,29 +322,48 @@ void Socket::threadBradcastMessage()
     readThread.detach();
 }
 
-
-void Socket::serverSendBroadcastMessage()
+void ServerSocket::closeSocket(int sd)
 {
-    thread serverBroadcastThread([this]() {
-        string message;
-        
-        while (isConnected.load())
-        {
-            cout << "Enter message to send to client (or 'exit' to quit): ";
-            getline(cin, message);
-            if (message == "exit")
-            {
-                isConnected.store(false);
-                break;
-            }
-            for (const auto &sd : clientSockets)
-            {
-                broacastMessageQueue.push(make_pair(sd, message));
-            }
-        }
-    });
-    serverBroadcastThread.detach();
+    m_IsConnected.store(false);
+    CLOSESOCKET(sd);
+    cout << "Server socket closed." << endl;
 }
+
+int ServerSocket::addBroadcastTextMessage(string message) {
+    if (m_IsConnected.load())
+    {
+        for (const auto &sd : clientSockets)
+        {
+            broacastMessageQueue.push(make_pair(sd, message));
+        }
+        return SUSCESS; // Indicate success
+    }
+    return FAILURE; // Indicate failure if not connected
+}
+
+
+// void ServerSocket::serverSendBroadcastMessage()
+// {
+//     thread serverBroadcastThread([this]() {
+//         string message;
+        
+//         while (isConnected.load())
+//         {
+//             cout << "Enter message to send to client (or 'exit' to quit): ";
+//             getline(cin, message);
+//             if (message == "exit")
+//             {
+//                 isConnected.store(false);
+//                 break;
+//             }
+//             for (const auto &sd : clientSockets)
+//             {
+//                 broacastMessageQueue.push(make_pair(sd, message));
+//             }
+//         }
+//     });
+//     serverBroadcastThread.detach();
+// }
 
 
 

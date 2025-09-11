@@ -37,18 +37,13 @@ public:
     ClientSocket(ClientSocket&&) = delete;
     ClientSocket& operator=(ClientSocket&&) = delete;  
     
-    // readMessageThread - thread to read messages from the server
-    void readMessageThread();
-    
-    // startReadMessageThead - start thread to read messages from server
-    void startReadMessageThead();
-    
-    // startSendMessageThread - start thread to send messages to server
-    void startSendMessageThread();
-    
-    // sendMessageThread - send messages to server
-    void sendMessageThread();
-    
     // sendMessage - send a single message to server
-    void sendMessage(const string& message);
+    // message - the message to send
+    // returns number of bytes sent, or -1 on error
+    ssize_t sendMessage(const string& message);
+
+    // readMessage - read a single message from server
+    // message - is output parameter to hold the received message
+    // returns number of bytes read, or -1 on error/disconnection
+    ssize_t readMessage(string &message);
 };

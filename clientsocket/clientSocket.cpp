@@ -8,7 +8,6 @@
     #include <winsock2.h>
     #include <ws2tcpip.h>
     #include <windows.h>
-//    #pragma comment(lib, "ws2_32.lib")
 #else
     #include <arpa/inet.h>
 #endif
@@ -44,76 +43,42 @@ int ClientSocket::connect()
     return 0;
 }
 
-void ClientSocket::readMessageThread()
-{
+ssize_t ClientSocket::readMessage(string &message){
     char buffer[1024];
-    while (m_chatActive.load())
+    memset(buffer, 0, sizeof(buffer));
+    ssize_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
+    if (bytes_received > 0)
     {
-        cout << "Waiting for message from server..." << endl;
-        memset(buffer, 0, sizeof(buffer));
-        ssize_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
-        if (bytes_received > 0)
-        {
-            buffer[bytes_received] = '\0'; // Null-terminate the received data
-            cout << "Received from server: " << buffer << endl;
-        }
-        else if (bytes_received == 0)
-        {
-            cout << "Server closed the connection." << endl;
-            break;
-        }
-        else if (strcmp(buffer, "exit") == 0)
-        {
-            cout << "Exit command received. Closing connection." << endl;
-            break;
-        }
-        else
-        {
-            cerr << "Error receiving data from server." << endl;
-        }
+        buffer[bytes_received] = '\0'; // Null-terminate the received data
+        cout << "Received from server: " << buffer << endl;
+        message = string(buffer);
+        return bytes_received;
     }
-    disconnect();
-    m_chatActive.store(false); // Ensure chat is marked as inactive   
-}
-void ClientSocket::startReadMessageThead()
-{
-    thread readThread(&ClientSocket::readMessageThread, this);
-    readThread.detach(); // Detach the thread to run independently
+    else if (bytes_received == 0)
+    {
+        cout << "Server closed the connection." << endl;
+    }
+    else if (strcmp(buffer, "exit") == 0)
+    {
+        cout << "Exit command received. Closing connection." << endl;
+    }
+    else
+    {
+        cerr << "Error receiving data from server." << endl;
+    }
+    return -1; // Indicate error or connection closed
 }
 
-void ClientSocket::startSendMessageThread()
-{
-    thread sendThread(&ClientSocket::sendMessageThread, this);
-    sendThread.detach(); // Detach the thread to run independently
-}
-
-void ClientSocket::sendMessageThread()
-{
-    while (m_chatActive.load())
-    {
-        string message;
-        cout << "Enter message to send (type 'exit' to quit): ";
-        getline(cin, message);
-        sendMessage(message); 
-        if (message == "exit")
-        {
-            break;
-        }
-    }
-    m_chatActive.store(false);
-    disconnect();
-}
-void ClientSocket::sendMessage(const string& message)
+ssize_t ClientSocket::sendMessage(const string& message)
 {
     ssize_t bytes_sent = send(m_sockfd, message.c_str(), message.size(), 0);
     if (bytes_sent < 0)
     {
         cerr << "Error sending data to server." << endl;
+        return -1;
     }
-    else
-    {
-        cout << "Sent to server: " << message << endl;
-    }
+    //cout << "Sent to server: " << message << endl;
+    return bytes_sent;
 }
 
 void ClientSocket::disconnect()
