@@ -23,7 +23,7 @@
 
 #include "chatserver.h"
 
-constexpr int SUSCESS = 0;
+constexpr int SUCCESS = 0;
 constexpr int FAILURE = -1;
 
 using namespace std;
@@ -33,7 +33,7 @@ ServerSocket::ServerSocket()
 #ifdef _WIN32
     WSADATA d;
     if (WSAStartup(MAKEWORD(2,2), &d)) {
-        cerr << "Failed to initialize Winsock!" << endl;
+        cerr << __func__ << ":" << "Failed to initialize Winsock!" << endl;
         exit(EXIT_FAILURE);
     }
 #endif
@@ -42,11 +42,11 @@ ServerSocket::ServerSocket()
     if (m_sockfd < 0)
     {
         cerr << "Socket creation failed!" << std::endl;
-        getError(errno);
+        logErrorMessage(errno);
         exit(EXIT_FAILURE);
     }
 
-    cout << "Server socket created successfully." << std::endl;
+    cout << __func__ << ":" << "Server socket created successfully." << std::endl;
 
     memset(&m_ServerAddr, 0, sizeof(m_ServerAddr));
 
@@ -58,8 +58,8 @@ ServerSocket::ServerSocket()
     int optlen{sizeof(optval)};
     if (setsockopt(m_sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) < 0)
     {
-        cerr << "Setsockopt failed!" << endl;
-        getError(errno);
+        cerr << __func__ << ":" << "Setsockopt failed!" << endl;
+        logErrorMessage(errno);
         exit(EXIT_FAILURE);
     }
     auto randomPort = PORT;
@@ -83,27 +83,27 @@ ServerSocket::ServerSocket()
                     break;
                 }
             }
-            cerr << "Bind failed! Retrying..." << attempts << "/" << MAX_PORT_TRIES << endl;
-            cout << "Trying port: " << randomPort << endl;
-            getError(errno);
+            cerr << __func__ << ":" << "Bind failed! Retrying..." << attempts << "/" << MAX_PORT_TRIES << endl;
+            cout << __func__ << ":" << "Trying port: " << randomPort << endl;
+            logErrorMessage(errno);
             continue;
         }
         attempts++;
         break;
     }
-    cout << "Number of attempts to bind: " << attempts << endl;
+    cout << __func__ << ":" << "Number of attempts to bind: " << attempts << endl;
     if (attempts == MAX_PORT_TRIES)
     {
-        cerr << "Failed to bind after multiple attempts!" << endl;
+        cerr << __func__ << ":" << "Failed to bind after multiple attempts!" << endl;
         exit(EXIT_FAILURE);
     }
 
-    cout << "Server bound to port " << randomPort << "." << endl;
+    cout << __func__ << ":" << "Server bound to port " << randomPort << "." << endl;
 
     if (listen(m_sockfd, MAX_QUEUE_CONNECTINON) < 0)
     {
-        cerr << "Listen failed!" << endl;
-        getError(errno);
+        cerr << __func__ << ":" << "Listen failed!" << endl;
+        logErrorMessage(errno);
         exit(EXIT_FAILURE);
     }
     getHostNameIP();
@@ -112,10 +112,10 @@ ServerSocket::ServerSocket()
     //serverSendBroadcastMessage();
 }
 
-void ServerSocket::getError(int errorCode)
+void ServerSocket::logErrorMessage(int errorCode)
 {
-    cout << "Error code: " << errorCode << endl;
-    cout << "Error description: " << strerror(errorCode) << endl
+    cout << __func__ << ":" << "Error code: " << errorCode << endl;
+    cout << __func__ << ":" << "Error description: " << strerror(errorCode) << endl
          << endl;
 }
 
@@ -128,34 +128,38 @@ void ServerSocket::setIsConnected(bool isConnected)
     m_IsConnected.store(isConnected);
 }
 
+int ServerSocket::getServerSocket() const { 
+    return m_sockfd; 
+}    
+
 void ServerSocket::getHostNameIP()
 {
     char hostname[BUFFER_SIZE];
     if (gethostname(hostname, sizeof(hostname)) == 0)
     {
-        cout << "Server name: " << hostname << endl;
+        cout << __func__ << ":" << "Server name: " << hostname << endl;
     }
     else
     {
-        cerr << "Gethostname failed!" << endl;
-        getError(errno);
+        cerr << __func__ << ":" << "Gethostname failed!" << endl;
+        logErrorMessage(errno);
     }
 
     hostent *hostIP = gethostbyname(hostname);
     if (hostIP == nullptr)
     {
-        cerr << "Gethostbyname failed!" << endl;
-        getError(errno);
+        cerr << __func__ << ":" << "Gethostbyname failed!" << endl;
+        logErrorMessage(errno);
         exit(EXIT_FAILURE);
     }
     char ip[INET_ADDRSTRLEN];
     if (inet_ntop(AF_INET, hostIP->h_addr, ip, sizeof(ip)) == nullptr)
     {
-        cerr << "Inet_ntop failed!" << endl;
-        getError(errno);
+        cerr << __func__ << ":" << "Inet_ntop failed!" << endl;
+        logErrorMessage(errno);
         exit(EXIT_FAILURE);
     }
-    cout << "Host IP: " << ip << endl;
+    cout << __func__ << ":" << "Host IP: " << ip << endl;
 }
 
 bool ServerSocket::getClientIP(int sd)
@@ -166,39 +170,44 @@ bool ServerSocket::getClientIP(int sd)
     if (getpeername(sd, (struct sockaddr *)&clientAddr, &clientAddrLen) == 0)
     {
         inet_ntop(AF_INET, &(clientAddr.sin_addr), ip4, INET_ADDRSTRLEN);
-        cout << "\n**********************************************" << endl;
-        cout << "Client IP: " << ip4 << " Port: " << ntohs(clientAddr.sin_port) << endl;
+        cout << __func__ << ":" << " Client IP: " << ip4 << " Port: " << ntohs(clientAddr.sin_port) << endl;
         return true;
     }
-    cerr << "Getpeername failed! Error: " << errno << endl;
+    cerr << __func__ << ":" << " Getpeername failed! Error: " << errno << endl;
     return false;
 }
 
-void ServerSocket::listenClientConnections()
+int ServerSocket::listenClientConnections()
 {
-    while (true)
+    cout << __func__ << ":" << "\n**********************************************" << endl;
+    cout << __func__ << ":" << " Server is ready to accept connections." << endl;
+    socklen_t clientAddrLen = sizeof(sockaddr);
+    int  clientSocket = accept(m_sockfd, (struct sockaddr *)&m_ServerAddr, &clientAddrLen);
+    if (getIsConnected() == false)
     {
-        cout << "\n**********************************************" << endl;
-        cout << "Server is ready to accept connections." << endl;
-        socklen_t clientAddrLen = sizeof(sockaddr);
-        auto clientSocket = accept(m_sockfd, (struct sockaddr *)&m_ServerAddr, &clientAddrLen);
-        if (clientSocket < 0)
-        {
-            cerr << "Accept failed!" << endl;
-            getError(errno);
-            continue;
-        }
-        if (!getClientIP(clientSocket))
-        {
-            closeSocket(clientSocket);
-            continue;
-        }        
-        
-        cout << "Client connected successfully." << endl;
-        atomic<bool> chatActive{true};
-        clientSockets.insert(clientSocket);
-        //readFromClientThread(clientSocket, chatActive);
+        cerr << __func__ << ":" << " Server is shuting down. Cannot accept new connections." << endl; 
+        return SUCCESS;
     }
+    if (clientSocket < 0)
+    {
+        cerr << __func__ << ":" << " Accept failed!" << endl;
+        logErrorMessage(errno);
+        return FAILURE;
+    }
+    if (!getClientIP(clientSocket))
+    {
+        return FAILURE;
+    }        
+    
+    cout << __func__ << ":" << " Client connected successfully." << endl;
+    auto result = clientSockets.emplace(clientSocket);
+    if (!result.second)
+    {
+        cerr << __func__ << ":" << " Failed to add client socket to the set." << endl;
+        CLOSESOCKET(clientSocket);
+        return FAILURE;
+    }   
+    return clientSocket;
 }
 
 ServerSocket::~ServerSocket()
@@ -207,49 +216,58 @@ ServerSocket::~ServerSocket()
 #ifdef _WIN32
     WSACleanup();
 #endif
-    cout << "Server socket closed." << endl;
+    cout << __func__ << ":" << " ServerSocket class destroyed." << endl;
 }
 
 bool ServerSocket::writeToClient(int sd, const string_view message)
 {
-    ssize_t bytesSent = send(sd, message.data(), message.length(), 0);
+    size_t bytesSent = send(sd, message.data(), message.length(), 0);
     if (bytesSent < 0)
     {
-        cerr << "Send to client failed!" << endl;
-        getError(errno);
+        cerr << __func__ << ":" << " Send to client failed!" << endl;
+        logErrorMessage(errno);
         return false;
     }
     return true;
-    //cout << "Sent to client: " << message << endl;
 }
 
-ssize_t ServerSocket::readMessage(string &message){
+size_t ServerSocket::readMessage(string &message, int sd){
     char buffer[BUFFER_SIZE];
     memset(buffer, 0, sizeof(buffer));
-    ssize_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
+    size_t bytes_received = recv(sd, buffer, sizeof(buffer) - 1, 0);
+    if (getIsConnected() == false)
+    {
+        cerr << __func__ << ":" << "Server is shuting down. Cannot read messages." << endl; 
+        return SUCCESS;
+    }
+    if (strcmp(buffer, "quit") == 0)
+    {
+        cout << __func__ << ":" << "Quit command received. Closing connection." << endl;
+        return SUCCESS;
+    }
     if (bytes_received > 0)
     {
         buffer[bytes_received] = '\0'; // Null-terminate the received data
-        cout << "Received from client: " << buffer << endl;
+        getClientIP(sd);
+        cout << __func__ << ":" << "Message size: " << bytes_received << endl;
+        cout << __func__ << ":" << "Message from client: " << buffer << endl;
         message = string(buffer);
         return bytes_received;
     }
-    else if (bytes_received == 0)
+    if (bytes_received == 0)
     {
-        cout << "Client closed the connection." << endl;
-    }
-    else if (strcmp(buffer, "exit") == 0)
-    {
-        cout << "Exit command received. Closing connection." << endl;
+        //cout << "Client closed the connection." << endl;
+        return SUCCESS;
     }
     else
     {
-        cerr << "Error receiving data from client." << endl;
+        cerr << __func__ << ":" << "Error receiving data from client." << endl;
+        logErrorMessage(errno);
     }
-    return -1; // Indicate error or connection closed
+    return FAILURE; // Indicate error or connection closed
 }
 
-ssize_t ServerSocket::getClientCount(){
+size_t ServerSocket::getClientCount(){
     return clientSockets.size();
 }
 
@@ -269,7 +287,7 @@ ssize_t ServerSocket::getClientCount(){
 //         if (bytesRead < 0)
 //         {
 //             cerr << "Read from client failed!" << endl;
-//             getError(errno);
+//             logErrorMessage(errno);
 //             break;
 //         }
 //         else if (bytesRead == 0)
@@ -310,8 +328,9 @@ void ServerSocket::threadBradcastMessage()
                 if (writeToClient(sd, message)){
                    broacastMessageQueue.pop();     
                 } // Echo back to client
-
-                cout << "Send message to client: " << message << endl;
+                cout << __func__ << ":" << "sd: " << sd << endl;
+                getClientIP(sd);
+                cout << __func__ << ":" << "Send message to client: " << message << endl;
             }
             else
             {
@@ -322,11 +341,14 @@ void ServerSocket::threadBradcastMessage()
     readThread.detach();
 }
 
-void ServerSocket::closeSocket(int sd)
+void ServerSocket::SocketClosed(int sd)
 {
-    m_IsConnected.store(false);
     CLOSESOCKET(sd);
-    cout << "Server socket closed." << endl;
+    cout << __func__ << ":" << " Socket closed." << endl;
+}
+
+unordered_set<int> ServerSocket::getClientSockets() const {
+    return clientSockets;
 }
 
 int ServerSocket::addBroadcastTextMessage(string message) {
@@ -336,34 +358,7 @@ int ServerSocket::addBroadcastTextMessage(string message) {
         {
             broacastMessageQueue.push(make_pair(sd, message));
         }
-        return SUSCESS; // Indicate success
+        return SUCCESS; // Indicate success
     }
     return FAILURE; // Indicate failure if not connected
 }
-
-
-// void ServerSocket::serverSendBroadcastMessage()
-// {
-//     thread serverBroadcastThread([this]() {
-//         string message;
-        
-//         while (isConnected.load())
-//         {
-//             cout << "Enter message to send to client (or 'exit' to quit): ";
-//             getline(cin, message);
-//             if (message == "exit")
-//             {
-//                 isConnected.store(false);
-//                 break;
-//             }
-//             for (const auto &sd : clientSockets)
-//             {
-//                 broacastMessageQueue.push(make_pair(sd, message));
-//             }
-//         }
-//     });
-//     serverBroadcastThread.detach();
-// }
-
-
-

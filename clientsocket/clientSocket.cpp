@@ -43,24 +43,25 @@ int ClientSocket::connect()
     return 0;
 }
 
-ssize_t ClientSocket::readMessage(string &message){
+size_t ClientSocket::readMessage(string &message){
     char buffer[1024];
     memset(buffer, 0, sizeof(buffer));
-    ssize_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
+    size_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
     if (bytes_received > 0)
     {
         buffer[bytes_received] = '\0'; // Null-terminate the received data
-        cout << "Received from server: " << buffer << endl;
+        cout << "Message size: " << bytes_received << endl;
+        cout << "Received from server: " << buffer << endl << "\n";
         message = string(buffer);
         return bytes_received;
+    }
+    else if (strcmp(buffer, "quit") == 0)
+    {
+        cout << "Quit command received, closing connection." << endl;
     }
     else if (bytes_received == 0)
     {
         cout << "Server closed the connection." << endl;
-    }
-    else if (strcmp(buffer, "exit") == 0)
-    {
-        cout << "Exit command received. Closing connection." << endl;
     }
     else
     {
@@ -69,25 +70,33 @@ ssize_t ClientSocket::readMessage(string &message){
     return -1; // Indicate error or connection closed
 }
 
-ssize_t ClientSocket::sendMessage(const string& message)
+size_t ClientSocket::sendMessage(const string& message)
 {
-    ssize_t bytes_sent = send(m_sockfd, message.c_str(), message.size(), 0);
+    size_t bytes_sent = send(m_sockfd, message.c_str(), message.size(), 0);
     if (bytes_sent < 0)
     {
         cerr << "Error sending data to server." << endl;
         return -1;
     }
-    //cout << "Sent to server: " << message << endl;
     return bytes_sent;
 }
 
-void ClientSocket::disconnect()
+void ClientSocket::SocketClosed()
 {
     cout << "Disconnecting from " << m_ip << ":" << m_port << "..." << endl;
     close(m_sockfd);
 }
 ClientSocket::~ClientSocket()
 {
+#ifdef _WIN32
+    WSACleanup();
+#endif
     cout << "ClientSocket for " << m_ip << ":" << m_port << " destroyed." << endl;
-    disconnect();
+}
+
+void ClientSocket::LogErrorMessage(int errorCode)
+{
+    cout << "Error code: " << errorCode << endl;
+    cout << "Error description: " << strerror(errorCode) << endl
+         << endl;
 }

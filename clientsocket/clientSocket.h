@@ -23,8 +23,8 @@ public:
     //connect - establish connection to server
     int connect();
     
-    //disconnect - close the socket connection
-    void disconnect();
+    //SocketClosed - close the socket connection
+    void SocketClosed();
     
     //Destructor
     ~ClientSocket();
@@ -40,10 +40,15 @@ public:
     // sendMessage - send a single message to server
     // message - the message to send
     // returns number of bytes sent, or -1 on error
-    ssize_t sendMessage(const string& message);
+    size_t sendMessage(const string& message);
 
     // readMessage - read a single message from server
     // message - is output parameter to hold the received message
     // returns number of bytes read, or -1 on error/disconnection
-    ssize_t readMessage(string &message);
+    size_t readMessage(string &message);
+
+    // LogErrorMessage - prints error code and description
+    // errorCode: the error code to be printed
+    void LogErrorMessage(int errorCode);
+
 };
