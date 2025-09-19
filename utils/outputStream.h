@@ -8,9 +8,9 @@ using namespace std;
 class OutputStream  {
 private:
     ostream &m_os;
-    mutex coutMutex;    
+    mutex& m_mutex;    
 public:
-    OutputStream(ostream &os);
+    OutputStream(mutex& _mutex, ostream &os);
     ostream& operator <<(const string &data);
 };
 

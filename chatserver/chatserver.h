@@ -95,7 +95,7 @@ class ServerSocket{
         stop_source m_Source;
         stop_token m_sToken;
         jthread m_BroadcastThread;
-        OutputStream &m_cout;
+        unique_ptr<OutputStream>& m_cout;
 
         // sendMessage - sends a specific message to the connected client
         // sd: the socket descriptor of the connected client
@@ -111,7 +111,7 @@ class ServerSocket{
         
     public:
         // Constructor
-        ServerSocket(OutputStream& outputStream);
+        ServerSocket(unique_ptr<OutputStream> &outputStream);
         
         // LogErrorMessage - prints error code and description
         // errorCode: the error code to be printed
@@ -124,6 +124,11 @@ class ServerSocket{
 
         // getIsConnected - returns the connection status
         bool getIsConnected() const;
+
+        // getMutex - returns the mutex for external locking if needed
+        mutex& getMutex() {
+            return m_mutex;
+        }   
         
         // setIsConnected - sets the connection status
         void setIsConnected(bool isConnected);
