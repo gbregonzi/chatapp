@@ -9,14 +9,13 @@ file(GLOB SOURCES "*.cpp")
 
 add_executable(chatserver ${SOURCES})
 
-set_property(TARGET chatserver PROPERTY CMAKE_CXX_STANDARD 17)
+set_property(TARGET chatserver PROPERTY CMAKE_CXX_STANDARD 20)
 
 
-# Link with pthread if needed (for sockets)
-#find_package(Threads REQUIRED)
-#target_link_libraries(chatserver PRIVATE Threads::Threads)
-
-# Link Winsock library on Windows
 if(WIN32)
-    target_link_libraries(chatserver ws2_32)
+    # Link Winsock library on Windows
+    target_link_libraries(chatserver ws2_32 outputStream)
+else()
+    # Link pthread library on Unix-like systems 
+    target_link_libraries(chatserver pthread outputStream)   
 endif()

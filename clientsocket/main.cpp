@@ -9,15 +9,15 @@ using namespace std;
 constexpr int FAILURE = -1;
 
 
-void sendMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
+void sendMessageThread(ClientSocket& clientSocket, atomic<bool>& chatActive)
 {
     while (chatActive.load())
     {
         string message;
         cout << "Enter message to send (type 'quit' to exit): ";
         getline(cin, message);
-        clientcocket.sendMessage(message); 
-        if (message == "quit")
+        int bytesSent = clientSocket.sendMessage(message); 
+        if (message == "quit" || bytesSent == FAILURE)
         {
             chatActive.store(false);
             break;
