@@ -126,9 +126,7 @@ class ServerSocket{
         bool getIsConnected() const;
 
         // getMutex - returns the mutex for external locking if needed
-        mutex& getMutex() {
-            return m_mutex;
-        }   
+        mutex& getMutex();
         
         // setIsConnected - sets the connection status
         void setIsConnected(bool isConnected);

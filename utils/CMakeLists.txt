@@ -5,7 +5,7 @@ include(CTest)
 enable_testing()
 
 # Add all .cpp files in the current directory
-file(GLOB SOURCES "*.cpp")
+file(GLOB SOURCES "*.cpp", "*.h")
 
 set_property(TARGET outputStream PROPERTY CMAKE_CXX_STANDARD 20)
 
