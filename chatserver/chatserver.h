@@ -17,10 +17,6 @@
 
 using namespace std;
 
-constexpr unsigned short PORT{8080};
-constexpr int MAX_QUEUE_CONNECTINON{10};
-constexpr int BUFFER_SIZE{1024};
-
 enum class messageType { 
     HTTP_HEADER, 
     BAD_REQUEST,
@@ -84,9 +80,10 @@ string const FILE_MIME_TYPES[] = {
 
 class ServerSocket{
     private:
-        int m_sockfd;
+        int m_sockfdListener;
         atomic<bool> m_IsConnected{false};
-        struct sockaddr_in m_ServerAddr;
+        atomic<bool> m_isWindows{false};
+        //struct sockaddr_in m_ServerAddr;
         mutex m_mutex;
         condition_variable_any m_condVar; // For signaling new messages
         queue<pair<int, string>> m_BroadcastMessageQueue;
@@ -108,10 +105,14 @@ class ServerSocket{
 
         // getHostNameIP - retrieves and prints the server's hostname and IP address
         void getHostNameIP();
-        
+
+        // get_in_addr - get sockaddr, IPv4 or IPv6
+        void *get_in_addr(struct sockaddr *sa);
+
     public:
         // Constructor
         ServerSocket(unique_ptr<OutputStream> &outputStream);
+        //ServerSocket(unique_ptr<OutputStream> &outputStream);
         
         // LogErrorMessage - prints error code and description
         // errorCode: the error code to be printed
