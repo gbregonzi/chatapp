@@ -14,13 +14,13 @@
 
 #include "clientSocket.h"
 
-ClientSocket::ClientSocket(const string& ip, int port) : m_ip(ip), m_port(port) {
-        cout << "Class ClientSocket created for " << ip << ":" << port << endl;
+ClientSocket::ClientSocket(const string& ip, const char* portHostName) : m_ip(ip), m_PortHostName(portHostName) {
+        cout << "Class ClientSocket created for " << ip << ":" << m_PortHostName << endl;
 }
 
 int ClientSocket::connect()
 {
-    cout << "Connecting to " << m_ip << ":" << m_port << "..." << endl;
+    cout << "Connecting...\n";
 #ifdef _WIN32
     WSADATA d;
     if (WSAStartup(MAKEWORD(2,2), &d)) {
@@ -28,16 +28,37 @@ int ClientSocket::connect()
         exit(EXIT_FAILURE);
     }
 #endif
-    m_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (m_ip.find('.') == string::npos) {
+        struct addrinfo hints{}, *res = nullptr;
+        int status = getaddrinfo(m_ip.c_str(), m_PortHostName, &hints, &res);
+        if (status != 0) {
+            std::cerr << "getaddrinfo error: " << gai_strerror(status) << "\n";
+            return EXIT_FAILURE;
+        }
+        m_sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+        if (m_sockfd < 0) {
+            std::cerr << "Socket creation failed! Erro:" << strerror(errno) << "\n";
+            freeaddrinfo(res);
+            return EXIT_FAILURE;
+        }
+        if (::connect(m_sockfd, res->ai_addr, res->ai_addrlen) < 0) {
+            cerr << "Connection failed! Erro:" << strerror(errno) << "\n";
+            freeaddrinfo(res);
+            return EXIT_FAILURE;
+        }
+    }
+    else {
+        m_sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
-    struct sockaddr_in server_addr;
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(m_port);
-    inet_pton(AF_INET, m_ip.c_str(), &server_addr.sin_addr);
-    if (::connect(m_sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
-    {
-        cerr << "Connection failed!" << endl;
-        return -1;
+        struct sockaddr_in server_addr;
+        server_addr.sin_family = AF_INET;
+        server_addr.sin_port = htons(atoi(m_PortHostName));
+        inet_pton(AF_INET, m_ip.c_str(), &server_addr.sin_addr);
+        if (::connect(m_sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+        {
+            cerr << "Connection failed! Erro:" << strerror(errno) << "\n";
+            return -1;
+        }
     }
     m_chatActive.store(true); // Mark chat as active
     return 0;
@@ -57,7 +78,7 @@ size_t ClientSocket::readMessage(string &message){
     }
     else if (strcmp(buffer, "quit") == 0)
     {
-        cout << "Quit command received, closing connection." << endl;
+        cout << "Quit command received, closing connection." << "\n";
     }
     else if (bytes_received == 0)
     {
@@ -83,7 +104,7 @@ size_t ClientSocket::sendMessage(const string& message)
 
 void ClientSocket::SocketClosed()
 {
-    cout << "Disconnecting from " << m_ip << ":" << m_port << "..." << endl;
+    cout << "Disconnecting from " << m_ip << ":" << m_PortHostName << "..." << endl;
     close(m_sockfd);
 }
 ClientSocket::~ClientSocket()
@@ -91,7 +112,7 @@ ClientSocket::~ClientSocket()
 #ifdef _WIN32
     WSACleanup();
 #endif
-    cout << "ClientSocket for " << m_ip << ":" << m_port << " destroyed." << endl;
+    cout << "ClientSocket for " << m_ip << ":" << m_PortHostName << " destroyed." << endl;
 }
 
 void ClientSocket::LogErrorMessage(int errorCode)

@@ -15,12 +15,12 @@ using namespace std;
 class ClientSocket {
 private:   
     string m_ip;
-    int m_port;
+    const char* m_PortHostName;
     int m_sockfd;    
     atomic<bool> m_chatActive{false}; // Flag to control chat activity    
 public:
     // Constructor
-    ClientSocket(const string& ip, int port);
+    ClientSocket(const string& ip, const char* m_portHostName);
     
     //connect - establish connection to server
     int connect();

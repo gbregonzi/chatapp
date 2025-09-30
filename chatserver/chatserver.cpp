@@ -4,6 +4,7 @@
     #include <windows.h>
     typedef int socklen_t;
     #define CLOSESOCKET closesocket
+    #define ERROR_CODE WSAGetLastError()
 #else
     #include <arpa/inet.h>
     #include <unistd.h>
@@ -11,6 +12,7 @@
     #include <sys/socket.h>
     #include <sys/types.h>
     #define CLOSESOCKET close
+    #define ERROR_CODE errno
 #endif
 #include <iostream>
 #include <cstring>
@@ -38,26 +40,24 @@ ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream): m_cout(outpu
         *m_cout << __func__ << ":" << "Failed to initialize Winsock!\n";
         exit(EXIT_FAILURE);
     }
-    m_isWindows.store(true);
 #endif
     struct addrinfo hints{}, *ai = nullptr, *p = nullptr;
-    fd_set master; // master file descriptor list
-    fd_set read_fds; // temp file descriptor list for select()
     int fdmax; // maximum file descriptor number
-    struct sockaddr_storage remoteaddr; // client address
-    char remoteIP[INET6_ADDRSTRLEN];
+    char hostName[INET6_ADDRSTRLEN];
+    char service[20];
+    memset (hostName, 0, sizeof(hostName));
+    memset (service, 0, sizeof(service));
 
-    FD_ZERO(&master); // clear the master and temp sets
-    FD_ZERO(&read_fds);
+    FD_ZERO(&m_Master); // clear the master and temp sets
     memset(&hints, 0, sizeof(hints));
     
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
     
-    if (getaddrinfo(NULL, PORT, &hints, &ai) != 0) {
+    if (getaddrinfo(nullptr, PORT, &hints, &ai) != 0) {
         *m_cout << __func__ << ":" << "Getaddrinfo failed!\n";
-        logErrorMessage(m_isWindows.load() ? errno : WSAGetLastError());
+        logErrorMessage(ERROR_CODE);
         exit(EXIT_FAILURE);
     }
     
@@ -72,35 +72,22 @@ ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream): m_cout(outpu
         if (setsockopt(m_sockfdListener, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) < 0)
         {
             *m_cout << __func__ << ":" << "Setsockopt failed!\n";
-            logErrorMessage(m_isWindows.load() ? errno : WSAGetLastError());
+            logErrorMessage(ERROR_CODE);
             CLOSESOCKET(m_sockfdListener);
             continue;
         }
         
 
         if (bind(m_sockfdListener, p->ai_addr, p->ai_addrlen) != -1) {
-            void *addr;
-            std::string ipver; // IPv4 or IPv6
-
-            // Get the pointer to the address itself
-            if (p->ai_family == AF_INET) { // IPv4
-                struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
-                addr = &(ipv4->sin_addr);
-                ipver = "IPv4";
-            } else { // IPv6
-                struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
-                addr = &(ipv6->sin6_addr);
-                ipver = "IPv6";
+            if (getnameinfo(p->ai_addr, p->ai_addrlen, hostName, sizeof(hostName), service, sizeof(service), NI_NOFQDN|NI_NAMEREQD) != 0) {
+                *m_cout << __func__ << ":" << "getnameinfo fail!\n";
             }
-
-            // Convert the IP to a string and print it
-            inet_ntop(p->ai_family, addr, remoteIP, sizeof remoteIP);
-            *m_cout << ipver << " address: " << remoteIP << "\n";
+            *m_cout << "Server name:" << hostName << " Port:" << service << "\n";
             break; // Success
         }
         
         *m_cout << __func__ << ":" << "Bind failed! Retrying...\n";
-        logErrorMessage(m_isWindows.load() ? errno : WSAGetLastError());
+        logErrorMessage(ERROR_CODE);
         CLOSESOCKET(m_sockfdListener);
     }
     
@@ -117,20 +104,27 @@ ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream): m_cout(outpu
     if (listen(m_sockfdListener, MAX_QUEUE_CONNECTINON) < 0)
     {
         *m_cout << __func__ << ":" << "Listen failed!\n";
-        logErrorMessage(m_isWindows.load() ? WSAGetLastError() : errno);
+        logErrorMessage(ERROR_CODE);
         exit(EXIT_FAILURE);
     }
+    handleSelectConnections();
+}
 
-    FD_SET(m_sockfdListener, &master);
+void ServerSocket::handleSelectConnections() {
+    struct sockaddr_storage remoteaddr; // client address
+    fd_set read_fds; // temp file descriptor list for select()
+    int fdmax; // maximum file descriptor number
+    FD_ZERO(&read_fds);
+
+    FD_SET(m_sockfdListener, &m_Master);
     fdmax = m_sockfdListener; 
     setIsConnected(true);
-    getHostNameIP();
         
     for(;;){
-        read_fds = master; // copy it
+        read_fds = m_Master; // copy it
         if (select(fdmax+1, &read_fds, nullptr, nullptr, nullptr) == -1) {
             *m_cout << __func__ << ":" << "Select failed!\n";
-            logErrorMessage(m_isWindows.load() ? WSAGetLastError() : errno);
+            logErrorMessage(ERROR_CODE);
             exit(EXIT_FAILURE);
         }
 
@@ -148,15 +142,10 @@ ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream): m_cout(outpu
                     if (clientSocket < 0)
                     {
                         *m_cout << __func__ << ":" << "Accept failed!\n";
-                        logErrorMessage(m_isWindows.load() ? WSAGetLastError() : errno);
+                        logErrorMessage(ERROR_CODE);
                         continue;
                     }
-                    if (!getClientIP(clientSocket))
-                    {
-                        CLOSESOCKET(clientSocket);
-                        continue;
-                    }        
-                    
+                   
                     *m_cout << __func__ << ":" << " Client connected successfully.\n";
                     auto result = m_ClientSockets.emplace(clientSocket);
                     if (!result.second)
@@ -165,45 +154,73 @@ ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream): m_cout(outpu
                         CLOSESOCKET(clientSocket);
                         continue;
                     }   
-                    FD_SET(clientSocket, &master); // add to master set
+                    FD_SET(clientSocket, &m_Master); // add to master set
                     if (clientSocket > fdmax) {    // keep track of the max
                         fdmax = clientSocket;
                     }
-                    
-                    *m_cout << "selectserver: new connection from:" << 
-                                inet_ntop(remoteaddr.ss_family, 
-                                get_in_addr((struct sockaddr*)&remoteaddr),
-                                remoteIP, INET6_ADDRSTRLEN) << "on socket" << clientSocket << "\n";
+                    getClientIP(clientSocket);
                 } else {
-                    // handle data from a client
-                    char buffer[BUFFER_SIZE];
-                    memset(buffer, 0, sizeof(buffer));
-                    size_t bytes_received = recv(i, buffer, sizeof(buffer) - 1, 0);
-                    if (getIsConnected() == false)
-                    {
-                        *m_cout << __func__ << ":" << "Server is shuting down. Cannot read messages.\n"; 
-                        CLOSESOCKET(i);
-                        FD_CLR(i, &master); // remove from master set
-                        m_ClientSockets.erase(i);
-                        FD_CLR(i, &master); // remove from master set
+                    handleClient(i);
+                }
+                //     // handle data from a client
+                //     char buffer[BUFFER_SIZE];
+                //     memset(buffer, 0, sizeof(buffer));
+                //     size_t bytes_received = recv(i, buffer, sizeof(buffer) - 1, 0);
+                //     if (getIsConnected() == false)
+                //     {
+                //         *m_cout << __func__ << ":" << "Server is shuting down. Cannot read messages.\n"; 
+                //         CLOSESOCKET(i);
+                //         FD_CLR(i, &m_Master); // remove from master set
+                //         m_ClientSockets.erase(i);
+                //     }
+                //     else {
+                //         for(int j = 0; j <= fdmax; j++) {
+                //             // send to everyone!
+                //             if (FD_ISSET(j, &m_Master)) {
+                //                 // except the listener and ourselves
+                //                 if (j != m_sockfdListener && j != i) {
+                //                     if (sendMessage(j, buffer)) {
+                //                         //getClientIP(j);
+                //                         *m_cout << "selectserver:sd: " << j << ": Sent message to client: " << buffer << "\n";
+                //                     } else {
+                //                         *m_cout << "selectserver:Failed to send message to client: " << j << "\n";
+                //                     }
+                //                     m_cout->log("selectserver:***********************************************");
+                //                 }
+                //             }
+                //         }
+                //     }
+                // }
+            }
+        }
+    }
+}
+
+void ServerSocket::handleClient(int clientSocket){
+    // handle data from a client
+    char buffer[BUFFER_SIZE];
+    memset(buffer, 0, sizeof(buffer));
+    size_t bytes_received = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
+    if (getIsConnected() == false)
+    {
+        *m_cout << __func__ << ":" << "Server is shuting down. Cannot read messages.\n"; 
+        CLOSESOCKET(clientSocket);
+        FD_CLR(clientSocket, &m_Master); // remove from master set
+        m_ClientSockets.erase(clientSocket);
+    }
+    else {
+        for(int j = 0; j <= fdmax; j++) {
+            // send to everyone!
+            if (FD_ISSET(j, &m_Master)) {
+                // except the listener and ourselves
+                if (j != m_sockfdListener && j != clientSocket) {
+                    if (sendMessage(j, buffer)) {
+                        //getClientIP(j);
+                        *m_cout << "selectserver:sd: " << j << ": Sent message to client: " << buffer << "\n";
+                    } else {
+                        *m_cout << "selectserver:Failed to send message to client: " << j << "\n";
                     }
-                    else {
-                        for(int j = 0; j <= fdmax; j++) {
-                            // send to everyone!
-                            if (FD_ISSET(j, &master)) {
-                                // except the listener and ourselves
-                                if (j != m_sockfdListener && j != i) {
-                                    if (sendMessage(j, buffer)) {
-                                        getClientIP(j);
-                                        *m_cout << "selectserver:sd: " << j << ": Sent message to client: " << buffer << "\n";
-                                    } else {
-                                        *m_cout << "selectserver:Failed to send message to client: " << j << "\n";
-                                    }
-                                    m_cout->log("selectserver:***********************************************");
-                                }
-                            }
-                        }
-                    }
+                    m_cout->log("selectserver:***********************************************");
                 }
             }
         }
@@ -329,37 +346,6 @@ void ServerSocket::closeAllClientSockets()
     *m_cout << __func__ << ":" << " All client sockets closed.\n";    
 }
 
-void ServerSocket::getHostNameIP()
-{
-    char hostname[BUFFER_SIZE];
-    if (gethostname(hostname, sizeof(hostname)) == 0)
-    {
-        *m_cout << __func__ << ":" << "Server name: " << hostname << "\n";
-    }
-    else
-    {
-        *m_cout << __func__ << ":" << "Gethostname failed!\n";
-        logErrorMessage(m_isWindows.load() ? WSAGetLastError() : errno);
-    }
-
-    hostent *hostIP = gethostbyname(hostname);
-    if (hostIP == nullptr)
-    {
-        *m_cout << __func__ << ":" << "Gethostbyname failed!\n";
-        logErrorMessage(m_isWindows.load() ? WSAGetLastError() : errno);
-        exit(EXIT_FAILURE);
-    }
-    char ip[INET6_ADDRSTRLEN];
-
-    if (inet_ntop(AF_INET, hostIP->h_addr, ip, sizeof(ip)) == nullptr)
-    {
-        *m_cout << __func__ << ":" << "Inet_ntop failed!\n";
-        logErrorMessage(m_isWindows.load() ? WSAGetLastError() : errno);
-        exit(EXIT_FAILURE);
-    }
-    *m_cout << __func__ << ":" << "Server IP:" << ip << " Listen Port:" << PORT << "\n";
-}
-
 void *ServerSocket::get_in_addr(struct sockaddr *sa)
 {
     if (sa->sa_family == AF_INET) {
@@ -368,20 +354,42 @@ void *ServerSocket::get_in_addr(struct sockaddr *sa)
 
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
-
-bool ServerSocket::getClientIP(int sd)
+bool ServerSocket::getClientIP(const sockaddr_storage& ss){
+     char ip[INET6_ADDRSTRLEN];
+    memset (ip, 0, sizeof(ip));
+    *m_cout << "selectserver: new connection from:" << 
+                inet_ntop(ss.ss_family, 
+                get_in_addr((struct sockaddr*)&ss),
+                ip, INET6_ADDRSTRLEN) << "\n";
+    return true;
+}
+bool ServerSocket::getClientIP(int sd )
 {
     char ip[INET6_ADDRSTRLEN];
-    struct sockaddr_in sockAddr;
+    int port;
+    char afType[6];
+    struct sockaddr_storage sockAddr;
     socklen_t sockAddrLen = sizeof(sockAddr);
-    if (getpeername(sd, (struct sockaddr *)&sockAddr, &sockAddrLen) == 0)
+    memset(&sockAddr, 0, sizeof(sockAddr));
+    if (getpeername(sd, (struct sockaddr *)&sockAddr, &sockAddrLen) != 0)
     {
-        inet_ntop(AF_INET, get_in_addr((struct sockaddr*)&sockAddr), ip, INET6_ADDRSTRLEN);
-        *m_cout << __func__ << ":" << "IP: " << ip << " Port: " << ntohs(sockAddr.sin_port) << "\n";
-        return true;
+        *m_cout << __func__ << ":" << " Getpeername failed! Error: " << errno << "\n";
+        return false;
     }
-    *m_cout << __func__ << ":" << " Getpeername failed! Error: " << errno << "\n";
-    return false;
+    
+    if (sockAddr.ss_family == AF_INET) {
+        struct sockaddr_in *s = (struct sockaddr_in *)&sockAddr;
+        port = ntohs(s->sin_port);
+        inet_ntop(AF_INET, &s->sin_addr, ip, sizeof(ip));
+        strcpy(afType, "IPV4:");
+    } else { // AF_INET6
+        struct sockaddr_in6 *s = (struct sockaddr_in6 *)&sockAddr;
+        port = ntohs(s->sin6_port);
+        inet_ntop(AF_INET6, &s->sin6_addr, ip, sizeof(ip));
+        strcpy(afType, "IPV6:");
+    }
+    *m_cout << __func__ << ":" << afType << ip << " Socket: " << port << "\n";
+    return true;
 }
 
 int ServerSocket::handleConnections()
@@ -397,13 +405,13 @@ int ServerSocket::handleConnections()
     if (clientSocket < 0)
     {
         *m_cout << __func__ << ":" << "Accept failed!\n";
-        logErrorMessage(m_isWindows.load() ? WSAGetLastError() : errno);
+        logErrorMessage(ERROR_CODE);
         return EXIT_FAILURE;
     }
-    if (!getClientIP(clientSocket))
-    {
-        return EXIT_FAILURE;
-    }        
+    // if (!getClientIP(clientSocket))
+    // {
+    //     return EXIT_FAILURE;
+    // }        
     
     *m_cout << __func__ << ":" << " Client connected successfully.\n";
     auto result = m_ClientSockets.emplace(clientSocket);
@@ -419,10 +427,10 @@ int ServerSocket::handleConnections()
 ServerSocket::~ServerSocket()
 {
     CLOSESOCKET(m_sockfdListener);
-    if (m_isWindows.load()) {
-        WSACleanup();
-     }
-    *m_cout << __func__ << ":" << " ServerSocket class destroyed.\n";
+#ifdef _WIN32
+     WSACleanup();
+#endif
+     *m_cout << __func__ << ":" << " ServerSocket class destroyed.\n";
 }
 
 bool ServerSocket::sendMessage(int sd, const string_view message)
@@ -431,7 +439,7 @@ bool ServerSocket::sendMessage(int sd, const string_view message)
     if (bytesSent < 0)
     {
         *m_cout << __func__ << ":" << " Send to client failed!\n";
-        logErrorMessage(m_isWindows.load() ? WSAGetLastError() : errno);
+        logErrorMessage(ERROR_CODE);
         return false;
     }
     return true;
@@ -454,7 +462,7 @@ size_t ServerSocket::readMessage(string &message, int sd){
     if (bytes_received > 0)
     {
         buffer[bytes_received] = '\0'; // Null-terminate the received data
-        getClientIP(sd);
+        //getClientIP(sd);
         *m_cout << __func__ << ":" << "Message size: " << bytes_received << "\n";
         *m_cout << __func__ << ":" << "Message from client: " << buffer << "\n";
         message = string(buffer);
@@ -468,7 +476,7 @@ size_t ServerSocket::readMessage(string &message, int sd){
     else
     {
         *m_cout << __func__ << ":" << "Error receiving data from client.\n";
-        logErrorMessage(m_isWindows.load() ? WSAGetLastError() : errno);;
+        logErrorMessage(ERROR_CODE);;
     }
     return EXIT_FAILURE; // Indicate error or connection closed
 }
@@ -496,7 +504,7 @@ void ServerSocket::threadBroadcastMessage() {
                 int sd = front.first;
                 const string& message = front.second;
                 if (sendMessage(sd, message)) {
-                    getClientIP(sd);
+                    //getClientIP(sd);
                     *m_cout << "threadBroadcastMessage:sd: " << sd << ": Sent message to client: " << message << "\n";
                 } else {
                     *m_cout << "threadBroadcastMessage:Failed to send message to client: " << sd << "\n";

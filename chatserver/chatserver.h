@@ -82,7 +82,6 @@ class ServerSocket{
     private:
         int m_sockfdListener;
         atomic<bool> m_IsConnected{false};
-        atomic<bool> m_isWindows{false};
         //struct sockaddr_in m_ServerAddr;
         mutex m_mutex;
         condition_variable_any m_condVar; // For signaling new messages
@@ -93,6 +92,8 @@ class ServerSocket{
         stop_token m_sToken;
         jthread m_BroadcastThread;
         unique_ptr<OutputStream>& m_cout;
+        fd_set m_Master; // master file descriptor list
+        fd_set m_ReadFds; // temp file descriptor list for select()
 
         // sendMessage - sends a specific message to the connected client
         // sd: the socket descriptor of the connected client
@@ -103,12 +104,16 @@ class ServerSocket{
         // threadBroadcastMessage - processes messages from the read message queue
         void threadBroadcastMessage();
 
-        // getHostNameIP - retrieves and prints the server's hostname and IP address
-        void getHostNameIP();
 
         // get_in_addr - get sockaddr, IPv4 or IPv6
         void *get_in_addr(struct sockaddr *sa);
 
+        // handleSelectConnections - handles multiple client connections using select()
+        void handleSelectConnections();
+
+        // handleClient - handles communication with a specific client
+        // clientSocket: the socket descriptor of the connected client
+        void handleClient(int clientSocket);
     public:
         // Constructor
         ServerSocket(unique_ptr<OutputStream> &outputStream);
@@ -122,6 +127,10 @@ class ServerSocket{
         // sd: the socket descriptor of the connected client
         // Returns true if successful, false otherwise
         bool getClientIP(int sd);
+
+        // Overloaded version to get IP from sockaddr_storage
+        // ss: the sockaddr_storage of the connected client
+        bool getClientIP(const sockaddr_storage& ss);
 
         // getIsConnected - returns the connection status
         bool getIsConnected() const;

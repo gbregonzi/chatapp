@@ -61,9 +61,9 @@ int main (int argc, char *argv[]) {
     }
 
     string server_ip = argv[1];
-    int server_port = stoi(argv[2]);
-    cout << "Server IP: " << server_ip << ", Server Port: " << server_port << endl; 
-    ClientSocket client(server_ip, server_port);
+    const char *portHostName = argv[2];
+    cout << "Server IP: " << server_ip << ", Port: " << portHostName << endl; 
+    ClientSocket client(server_ip, portHostName);
     if (client.connect() == 0) {
         cout << "Connected to server successfully!" << endl;
         startSendMessageThread(client, chatActive);
