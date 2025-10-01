@@ -1,7 +1,4 @@
 #ifdef _WIN32
-    #include <winsock2.h>
-    #include <ws2tcpip.h>
-    #include <windows.h>
     typedef int socklen_t;
     #define CLOSESOCKET closesocket
     #define ERROR_CODE WSAGetLastError()
@@ -23,16 +20,14 @@
 
 #include "chatserver.h"
 
-//constexpr int SUCCESS = 0;
-//constexpr int FAILURE = -1;
 constexpr int MAX_PORT_TRIES{10};
-constexpr const char* PORT = "8080";
 constexpr int MAX_QUEUE_CONNECTINON{10};
 constexpr int BUFFER_SIZE{1024};
 
 using namespace std;
 
-ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream): m_cout(outputStream)
+ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream, const string& serverName, const string& port): 
+                          m_cout(outputStream), m_ServerName(serverName), m_PortNumber(port)   
 {
 #ifdef _WIN32
     WSADATA d;
@@ -42,7 +37,7 @@ ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream): m_cout(outpu
     }
 #endif
     struct addrinfo hints{}, *ai = nullptr, *p = nullptr;
-    int fdmax; // maximum file descriptor number
+    int fdMax; // maximum file descriptor number
     char hostName[INET6_ADDRSTRLEN];
     char service[20];
     memset (hostName, 0, sizeof(hostName));
@@ -54,9 +49,10 @@ ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream): m_cout(outpu
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
-    
-    if (getaddrinfo(nullptr, PORT, &hints, &ai) != 0) {
-        *m_cout << __func__ << ":" << "Getaddrinfo failed!\n";
+    if (getaddrinfo(serverName.c_str(), m_PortNumber.c_str(), &hints, &ai) != 0) {
+        *m_cout << __func__ << ":Getaddrinfo failed!\n";
+        *m_cout << __func__ << ":Error Code:" << ERROR_CODE << "\n";
+        *m_cout << __func__ << ":" << gai_strerror(ERROR_CODE) << "\n";
         logErrorMessage(ERROR_CODE);
         exit(EXIT_FAILURE);
     }
@@ -107,6 +103,7 @@ ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream): m_cout(outpu
         logErrorMessage(ERROR_CODE);
         exit(EXIT_FAILURE);
     }
+    getIP(p);
     handleSelectConnections();
 }
 
@@ -209,7 +206,7 @@ void ServerSocket::handleClient(int clientSocket){
         m_ClientSockets.erase(clientSocket);
     }
     else {
-        for(int j = 0; j <= fdmax; j++) {
+        for(int j = 0; j <= 10; j++) {
             // send to everyone!
             if (FD_ISSET(j, &m_Master)) {
                 // except the listener and ourselves
@@ -313,8 +310,8 @@ void ServerSocket::handleClient(int clientSocket){
 
 void ServerSocket::logErrorMessage(int errorCode)
 {
-    *m_cout << __func__ << ":" << "Error code: " << errorCode << "\n";
-    *m_cout << __func__ << ":" << "Error description: " << strerror(errorCode) << "\n\n";
+    *m_cout << __func__ << ":Error Code: " << errorCode << "\n";
+    *m_cout << __func__ << strerror(errorCode) << "\n\n";
 }
 
 mutex& ServerSocket::getMutex() {
@@ -354,23 +351,35 @@ void *ServerSocket::get_in_addr(struct sockaddr *sa)
 
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
-bool ServerSocket::getClientIP(const sockaddr_storage& ss){
-     char ip[INET6_ADDRSTRLEN];
-    memset (ip, 0, sizeof(ip));
-    *m_cout << "selectserver: new connection from:" << 
-                inet_ntop(ss.ss_family, 
-                get_in_addr((struct sockaddr*)&ss),
-                ip, INET6_ADDRSTRLEN) << "\n";
+bool ServerSocket::getIP(addrinfo* p){
+    char ipstr[INET6_ADDRSTRLEN];
+    void *addr;
+    const char *ipver;
+
+    // get the pointer to the address itself,
+    // different fields in IPv4 and IPv6:
+    if (p->ai_family == AF_INET) { // IPv4
+        struct sockaddr_in *ipv4 = (struct sockaddr_in *)p->ai_addr;
+        addr = &(ipv4->sin_addr);
+        ipver = "IPv4";
+    } else { // IPv6
+        struct sockaddr_in6 *ipv6 = (struct sockaddr_in6 *)p->ai_addr;
+        addr = &(ipv6->sin6_addr);
+        ipver = "IPv6";
+    }
+    inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
+    *m_cout << __func__ << ":" << ipver << ": " << ipstr << "\n";
     return true;
 }
+
 bool ServerSocket::getClientIP(int sd )
 {
     char ip[INET6_ADDRSTRLEN];
     int port;
-    char afType[6];
     struct sockaddr_storage sockAddr;
     socklen_t sockAddrLen = sizeof(sockAddr);
     memset(&sockAddr, 0, sizeof(sockAddr));
+    const char *ipVer;
     if (getpeername(sd, (struct sockaddr *)&sockAddr, &sockAddrLen) != 0)
     {
         *m_cout << __func__ << ":" << " Getpeername failed! Error: " << errno << "\n";
@@ -381,14 +390,14 @@ bool ServerSocket::getClientIP(int sd )
         struct sockaddr_in *s = (struct sockaddr_in *)&sockAddr;
         port = ntohs(s->sin_port);
         inet_ntop(AF_INET, &s->sin_addr, ip, sizeof(ip));
-        strcpy(afType, "IPV4:");
+        ipVer = "IPV4:";
     } else { // AF_INET6
         struct sockaddr_in6 *s = (struct sockaddr_in6 *)&sockAddr;
         port = ntohs(s->sin6_port);
         inet_ntop(AF_INET6, &s->sin6_addr, ip, sizeof(ip));
-        strcpy(afType, "IPV6:");
+        ipVer = "IPV6:";
     }
-    *m_cout << __func__ << ":" << afType << ip << " Socket: " << port << "\n";
+    *m_cout << __func__ << ":" << ipVer << ip << " Socket: " << port << "\n";
     return true;
 }
 

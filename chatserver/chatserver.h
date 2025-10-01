@@ -9,6 +9,8 @@
 #include <condition_variable>
 #ifdef _WIN32
     #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #include <windows.h>
 #else
     #include <netinet/in.h>
 #endif
@@ -81,8 +83,9 @@ string const FILE_MIME_TYPES[] = {
 class ServerSocket{
     private:
         int m_sockfdListener;
+        string m_ServerName;
+        string m_PortNumber;
         atomic<bool> m_IsConnected{false};
-        //struct sockaddr_in m_ServerAddr;
         mutex m_mutex;
         condition_variable_any m_condVar; // For signaling new messages
         queue<pair<int, string>> m_BroadcastMessageQueue;
@@ -116,8 +119,10 @@ class ServerSocket{
         void handleClient(int clientSocket);
     public:
         // Constructor
-        ServerSocket(unique_ptr<OutputStream> &outputStream);
-        //ServerSocket(unique_ptr<OutputStream> &outputStream);
+        // outputStream: the OutputStream instance for logging
+        // serverName: the server hostname or IP address
+        // portNumber: the port number to bind the server socket
+        ServerSocket(unique_ptr<OutputStream> &outputStream, const string& serverName, const string& portNumber);
         
         // LogErrorMessage - prints error code and description
         // errorCode: the error code to be printed
@@ -129,8 +134,8 @@ class ServerSocket{
         bool getClientIP(int sd);
 
         // Overloaded version to get IP from sockaddr_storage
-        // ss: the sockaddr_storage of the connected client
-        bool getClientIP(const sockaddr_storage& ss);
+        // p: pointer to addrinfo structure
+        bool getIP(addrinfo* p);
 
         // getIsConnected - returns the connection status
         bool getIsConnected() const;

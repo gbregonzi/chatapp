@@ -17,5 +17,5 @@ if(WIN32)
     target_link_libraries(chatserver ws2_32)
 else()
     # Link pthread library on Unix-like systems 
-    target_link_libraries(chatserver pthread)   
+    target_link_libraries(chatserver startserver pthread)   
 endif()
