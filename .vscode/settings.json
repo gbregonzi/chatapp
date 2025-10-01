@@ -1,0 +1,9 @@
+{
+  "files.associations": {
+    "xlocmes": "cpp",
+    "cerrno": "cpp",
+    "stop_token": "cpp",
+    "thread": "cpp",
+    "atomic": "cpp"
+  }
+}
