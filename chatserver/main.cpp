@@ -21,19 +21,33 @@ int main (int argc, const char* argv[]){
     }
 
     if (argc > 1) {
-        serverName = argv[1];
+        try{
+
+            int arg = stoi(argv[1]);
+            if (arg) {
+                cout << "Invalid argument\n";
+                cout << "Usage: " << argv[0] << " [server_name] [port_number]\n";
+                return 0;
+            }
+        } catch (const std::exception& e) {
+            // Not an integer, assume it's a valid server name
+            serverName = argv[1];
+        }
     }
     if (argc > 2) {
         try {
             int portArg = stoi(argv[2]);
             if (portArg > 0 && portArg <= 65535) {
-                portNumber = portArg;
+                portNumber = argv[2];
             } else {
-                cerr << "Invalid port number. Using default port " << PORT << ".\n";
+                cerr << "Invalid port number. Using default port " << portNumber << ".\n";
             }
         } catch (const std::exception& e) {
-            cerr << "Error parsing port number: " << e.what() << ". Using default port " << PORT << ".\n";
+            cerr << "Error parsing port number: " << e.what() << ". Using default port " << portNumber << ".\n";
         }
+    }
+    else {
+        cout << "Port number wasn't provided as parameter. Using default port " << portNumber << ".\n";
     }
     StartServer startServer(serverName, portNumber);
     startServer.Run();

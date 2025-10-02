@@ -96,7 +96,6 @@ class ServerSocket{
         jthread m_BroadcastThread;
         unique_ptr<OutputStream>& m_cout;
         fd_set m_Master; // master file descriptor list
-        fd_set m_ReadFds; // temp file descriptor list for select()
 
         // sendMessage - sends a specific message to the connected client
         // sd: the socket descriptor of the connected client
@@ -107,16 +106,10 @@ class ServerSocket{
         // threadBroadcastMessage - processes messages from the read message queue
         void threadBroadcastMessage();
 
-
-        // get_in_addr - get sockaddr, IPv4 or IPv6
-        void *get_in_addr(struct sockaddr *sa);
-
-        // handleSelectConnections - handles multiple client connections using select()
-        void handleSelectConnections();
-
         // handleClient - handles communication with a specific client
-        // clientSocket: the socket descriptor of the connected client
-        void handleClient(int clientSocket);
+        // fd: the socket descriptor of the connected client
+        // fdmax: the maximum file descriptor number for select()
+        void handleClientMessage(int fd, int fdmax);
     public:
         // Constructor
         // outputStream: the OutputStream instance for logging
@@ -161,6 +154,9 @@ class ServerSocket{
         // Returns the client socket descriptor on success, -1 on failure
         int handleConnections();
         
+        // handleSelectConnections - handles multiple client connections using select()
+        void handleSelectConnections();
+
         // readMessage - reads a message from a specific client
         // message: output parameter to hold the received message
         // sd: the socket descriptor of the client to read from

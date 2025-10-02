@@ -16,9 +16,10 @@ StartServer::StartServer(const string& serverName, const string& portNumber): se
 
 int StartServer::Run(){
     if (m_ServerSocket->getIsConnected()) {
-        sendBroadcastTextMessage();
-        listenClientConnections();
-        *m_cout << __func__ << "Server is shutting down...\n";
+        m_ServerSocket->handleSelectConnections();
+        // sendBroadcastTextMessage();
+        // listenClientConnections();
+        *m_cout << __func__ << ":Server is shutting down...\n";
     } else {
         *m_cout << __func__ << "Server failed to connect.\n";
         return EXIT_FAILURE;
