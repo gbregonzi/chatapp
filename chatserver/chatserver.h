@@ -5,6 +5,7 @@
 #include <queue>
 #include <unordered_set>
 #include <mutex>
+#include <thread>
 #include <iostream>
 #include <condition_variable>
 #ifdef _WIN32

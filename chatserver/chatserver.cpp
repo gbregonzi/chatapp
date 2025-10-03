@@ -18,7 +18,7 @@
 #include <vector>
 #include <algorithm>
 
-#include "chatserver.h"
+#include "chatServer.h"
 
 constexpr int MAX_PORT_TRIES{10};
 constexpr int MAX_QUEUE_CONNECTINON{10};

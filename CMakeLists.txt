@@ -10,3 +10,4 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Add subdirectories
 add_subdirectory(chatserver)
 add_subdirectory(clientsocket)
+add_subdirectory(utils)
