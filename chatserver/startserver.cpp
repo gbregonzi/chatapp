@@ -1,13 +1,5 @@
 #include "startserver.h"
 
-unique_ptr<ServerSocket> ServerSocketFactory::create(unique_ptr<OutputStream> &outputStream, const string& serverName, const string& portNumber){
-    return make_unique<ServerSocket>(outputStream, serverName, portNumber);
-}
-
-
-std::unique_ptr<OutputStream> LogFactory::create(mutex& _mutex, ostream& os) {
-    return make_unique<OutputStream>(_mutex, os);
-}    
 
 StartServer::StartServer(const string& serverName, const string& portNumber): serverName(serverName), portNumber(portNumber) {
     m_cout = LogFactory::create(m_mutex);

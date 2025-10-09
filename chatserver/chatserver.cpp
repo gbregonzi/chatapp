@@ -43,13 +43,13 @@ ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream, const string&
     memset (hostName, 0, sizeof(hostName));
     memset (service, 0, sizeof(service));
 
-    FD_ZERO(&m_Master); // clear the master and temp sets
+    FD_ZERO(&m_Master);
     memset(&hints, 0, sizeof(hints));
     
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
-    if (getaddrinfo(serverName.c_str(), m_PortNumber.c_str(), &hints, &ai) != 0) {
+    if (getaddrinfo(m_ServerName.c_str(), m_PortNumber.c_str(), &hints, &ai) != 0) {
         *m_cout << __func__ << ":Getaddrinfo failed!\n";
         *m_cout << __func__ << ":Error Code:" << ERROR_CODE << "\n";
         *m_cout << __func__ << ":" << gai_strerror(ERROR_CODE) << "\n";
@@ -91,18 +91,18 @@ ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream, const string&
     
     *m_cout << __func__ << ":" << "Server created and bound successfully.\n";
     
+    if (getnameinfo(p->ai_addr, p->ai_addrlen, hostName, sizeof(hostName), service, sizeof(service), NI_NOFQDN|NI_NAMEREQD) != 0) {
+        *m_cout << __func__ << ":" << "getnameinfo fail!\n";
+    }
+    
     freeaddrinfo(ai); // all done with this
-
     if (listen(m_sockfdListener, MAX_QUEUE_CONNECTINON) < 0)
     {
         *m_cout << __func__ << ":" << "Listen failed!\n";
         logErrorMessage(ERROR_CODE);
         exit(EXIT_FAILURE);
     }
-    if (getnameinfo(p->ai_addr, p->ai_addrlen, hostName, sizeof(hostName), service, sizeof(service), NI_NOFQDN|NI_NAMEREQD) != 0) {
-    *m_cout << __func__ << ":" << "getnameinfo fail!\n";
-    }
-    *m_cout << __func__ << "Server name:" << hostName << " Port:" << service << "\n";
+    *m_cout << __func__ << ":Server name:" << hostName << " Port:" << service << "\n";
     m_IsConnected.store(true);
     threadBroadcastMessage();
 }
@@ -173,6 +173,19 @@ void ServerSocket::handleClientMessage(int fd, int fdMax) {
     {
         *m_cout << __func__ << ":" << "Server is shuting down. Cannot read messages.\n"; 
         CLOSESOCKET(fd);
+        FD_CLR(fd, &m_Master); // remove from master set
+        m_ClientSockets.erase(fd);
+    }
+    else if (bytes_received == ULLONG_MAX || bytes_received <= 0) {
+        // got error or connection closed by client
+        if (bytes_received == ULLONG_MAX || bytes_received == 0) {
+            // connection closed
+            *m_cout << __func__ << ":" << "Socket " << fd << " hung up\n";
+        } else {
+            *m_cout << __func__ << ":" << "Recv from client failed!\n";
+            logErrorMessage(ERROR_CODE);
+        }
+        CLOSESOCKET(fd); // bye!
         FD_CLR(fd, &m_Master); // remove from master set
         m_ClientSockets.erase(fd);
     }
@@ -314,7 +327,7 @@ void ServerSocket::closeAllClientSockets()
     *m_cout << __func__ << ":" << " All client sockets closed.\n";    
 }
 
-bool ServerSocket::getIP(addrinfo* p){
+bool ServerSocket::getClientIP(addrinfo* p){
     char ipStr[INET6_ADDRSTRLEN];
     void *addr;
     const char *ipVer;
@@ -520,3 +533,8 @@ int ServerSocket::addBroadcastTextMessage(const string message) {
     m_condVar.notify_one();
     return EXIT_SUCCESS;
 }
+
+// inline unique_ptr<ServerSocket> ServerSocketFactory::create(unique_ptr<OutputStream> &outputStream, 
+//                                             const string& serverName, const string& portNumber){
+//     return make_unique<ServerSocket>(outputStream, serverName, portNumber);
+// }

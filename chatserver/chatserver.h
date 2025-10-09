@@ -127,9 +127,9 @@ class ServerSocket{
         // Returns true if successful, false otherwise
         bool getClientIP(int sd);
 
-        // Overloaded version to get IP from sockaddr_storage
+        // getClientIP - Overloaded version to get IP from sockaddr_storage
         // p: pointer to addrinfo structure
-        bool getIP(addrinfo* p);
+        bool getClientIP(addrinfo* p);
 
         // getIsConnected - returns the connection status
         bool getIsConnected() const;
@@ -183,6 +183,11 @@ class ServerSocket{
 
         // Destructor
         ~ServerSocket();
-
 };
 
+struct ServerSocketFactory{
+    inline static unique_ptr<ServerSocket> create(unique_ptr<OutputStream> &outputStream, 
+                                            const string& serverName, const string& portNumber){
+        return make_unique<ServerSocket>(outputStream, serverName, portNumber);
+    };
+};

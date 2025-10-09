@@ -15,8 +15,6 @@ add_library(threadPool STATIC threadPool.h threadPool.cpp)
 
 target_include_directories(functionWrapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(threadPool PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(functionWrapper outputStream )
-target_link_libraries(threadPool functionWrapper)   
 
 # Optionally, add tests here if needed
 

@@ -7,16 +7,6 @@
 
 using namespace std;
 
-class ServerSocketFactory{
-public:
-    static unique_ptr<ServerSocket> create(unique_ptr<OutputStream> &outputStream, const string& serverName, const string& portNumber);
-};
-
-class LogFactory{
-public:
-    static unique_ptr<OutputStream>create(mutex& mt, ostream& os = cout); 
-};
-
 class StartServer {
 private:
     jthread readFromClientThread;

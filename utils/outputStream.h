@@ -25,4 +25,10 @@ public:
     }
 };
 
+struct LogFactory{
+    static unique_ptr<OutputStream>create(mutex& mt, ostream& os = cout){
+            return make_unique<OutputStream>(mt, os);
+    } 
+};
+
 

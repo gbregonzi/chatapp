@@ -4,6 +4,7 @@
     "cerrno": "cpp",
     "stop_token": "cpp",
     "thread": "cpp",
-    "atomic": "cpp"
+    "atomic": "cpp",
+    "unordered_set": "cpp"
   }
 }
