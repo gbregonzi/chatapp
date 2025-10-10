@@ -1,47 +1,26 @@
 
 #include <memory>
 #include <utility>
+#include "functionWrapper.h"
+using namespace std;
 
-class function_wrapper {
-	struct impl_base {
-		virtual void call() = 0;
-		virtual ~impl_base() {}
-	};
 
-	template<typename F>
-	struct impl_type : impl_base
-	{
-		F f;
-		impl_type(F&& f_) : f(std::move(f_)) {}
-		void call() { f(); }
-	};
 
-	std::unique_ptr<impl_base> impl;
+void functionWrapper::operator()() { 
+	impl->call(); 
+}
 
-public:
-	template<typename F>
-	function_wrapper(F&& f) :
-		impl(new impl_type<F>(std::move(f)))
-	{
-	}
+functionWrapper::functionWrapper()
+{
+}
 
-	void operator()() { impl->call(); }
+functionWrapper::functionWrapper(functionWrapper&& other) noexcept{
+	impl = move(other.impl);
+}
 
-	function_wrapper()
-	{
-	}
+functionWrapper& functionWrapper::operator=(functionWrapper&& other) noexcept{
+	impl = std::move(other.impl);
+	return *this;
+}
 
-	function_wrapper(function_wrapper&& other) noexcept :
-		impl(std::move(other.impl))
-	{
-	}
 
-	function_wrapper& operator=(function_wrapper&& other) noexcept
-	{
-		impl = std::move(other.impl);
-		return *this;
-	}
-
-	function_wrapper(const function_wrapper&) = delete; // Disable copy constructor
-	function_wrapper(function_wrapper&) = delete; // Disable copy assignment operator
-};

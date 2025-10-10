@@ -40,8 +40,8 @@ private:
 	~threadPool();
 
 	template<typename Function_Type>
-	future<typename result_of<Function_Type()>::type> submit(Function_Type f) { // Accepts a std::function as a task
-		typedef typename result_of<Function_Type()>::type result_type;
+	future<invoke_result_t<Function_Type>> submit(Function_Type f) { // Accepts a std::function as a task
+		using result_type = invoke_result_t<Function_Type>;
 		packaged_task<result_type()> task(move(f)); // Create a packaged task
 		future<result_type> res = task.get_future(); // Get the future from the packaged task
 		m_WorkQueue.push(move(task)); // Push the task to the work queue

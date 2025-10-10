@@ -22,25 +22,16 @@ class functionWrapper {
 
 public:
 	template<typename F>
-	functionWrapper(F&& f) : impl(new implType<F>(move(f)))
-	{
-	}
+	functionWrapper(F&& f) : impl(new implType<F>(move(f))){
+	};
+	
+	void operator()();
 
-	void operator()() { impl->call(); }
+	functionWrapper();
+	
+	functionWrapper(functionWrapper&& other) noexcept;
 
-	functionWrapper()
-	{
-	}
-
-	functionWrapper(functionWrapper&& other) noexcept :impl(move(other.impl))
-	{
-	}
-
-	functionWrapper& operator=(functionWrapper&& other) noexcept
-	{
-		impl = std::move(other.impl);
-		return *this;
-	}
+	functionWrapper& operator=(functionWrapper&& other) noexcept;
 
 	functionWrapper(const functionWrapper&) = delete; // Disable copy constructor
 	functionWrapper(functionWrapper&) = delete; // Disable copy assignment operator

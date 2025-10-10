@@ -104,6 +104,7 @@ ServerSocket::ServerSocket(unique_ptr<OutputStream>& outputStream, const string&
     }
     *m_cout << __func__ << ":Server name:" << hostName << " Port:" << service << "\n";
     m_IsConnected.store(true);
+    m_ThreadPool = make_unique<threadPool>(m_Threads);
     threadBroadcastMessage();
 }
 
@@ -121,6 +122,7 @@ void ServerSocket::handleSelectConnections() {
         readFds = m_Master; // copy it
         if (select(fdMax+1, &readFds, nullptr, nullptr, nullptr) == -1) {
             *m_cout << __func__ << ":" << "Select failed!\n";
+            setIsConnected(false);
             logErrorMessage(ERROR_CODE);
             exit(EXIT_FAILURE);
         }
@@ -157,7 +159,9 @@ void ServerSocket::handleSelectConnections() {
                     }
                     getClientIP(clientSocket);
                 } else {
-                    handleClientMessage(fd, fdMax);
+                    //future futures = m_ThreadPool->submit(bind(&ServerSocket::handleClientMessage, this, fd));   
+
+                    //handleClientMessage(fd);
                 }
             }
         }
@@ -165,7 +169,7 @@ void ServerSocket::handleSelectConnections() {
 }
 
 // handle data from a client
-void ServerSocket::handleClientMessage(int fd, int fdMax) {
+void ServerSocket::handleClientMessage(int fd) {
     char buffer[BUFFER_SIZE];
     memset(buffer, 0, sizeof(buffer));
     size_t bytes_received = recv(fd, buffer, sizeof(buffer) - 1, 0);
@@ -190,13 +194,13 @@ void ServerSocket::handleClientMessage(int fd, int fdMax) {
         m_ClientSockets.erase(fd);
     }
     else {
-        for(int j = 0; j <= fdMax; j++) {
+        for(int j = 0; j < m_Master.fd_count; j++) {
             // send to everyone!
-            if (FD_ISSET(j, &m_Master)) {
+            if (FD_ISSET(m_Master.fd_array[j], &m_Master)) {
                 // except the listener and ourselves
-                if (j != m_sockfdListener && j != fd) {
+                if (m_Master.fd_array[j] != m_sockfdListener && m_Master.fd_array[j] != fd) {
                     lock_guard<mutex> lock(m_mutex);
-                    auto result = m_BroadcastMessageQueue.emplace(make_pair(j, string(buffer)));
+                    auto result = m_BroadcastMessageQueue.emplace(make_pair(m_Master.fd_array[j], string(buffer)));
                     if (!result.first) {
                         *m_cout << __func__ << ":" << "Failed to add message to broadcast queue.\n";
                         continue;
@@ -298,9 +302,9 @@ void ServerSocket::logErrorMessage(int errorCode)
     *m_cout << __func__ << strerror(errorCode) << "\n\n";
 }
 
-mutex& ServerSocket::getMutex() {
-    return m_mutex;
-}
+// mutex& ServerSocket::getMutex() {
+//     return m_mutex;
+// }
 
 bool ServerSocket::getIsConnected() const
 {
@@ -378,39 +382,39 @@ bool ServerSocket::getClientIP(int sd )
     return true;
 }
 
-int ServerSocket::handleConnections()
-{
-    *m_cout << __func__ << ":" << "Server is ready to accept connections.\n";
-    socklen_t clientAddrLen = sizeof(sockaddr);
-    int  clientSocket = accept(m_sockfdListener, (struct sockaddr *)&m_sockfdListener, &clientAddrLen);
-    if (getIsConnected() == false)
-    {
-        *m_cout << __func__ << ":" << "Server is shutting down. Cannot accept new connections.\n"; 
-        return EXIT_SUCCESS;
-    }
+// int ServerSocket::handleConnections()
+// {
+//     *m_cout << __func__ << ":" << "Server is ready to accept connections.\n";
+//     socklen_t clientAddrLen = sizeof(sockaddr);
+//     int  clientSocket = accept(m_sockfdListener, (struct sockaddr *)&m_sockfdListener, &clientAddrLen);
+//     if (getIsConnected() == false)
+//     {
+//         *m_cout << __func__ << ":" << "Server is shutting down. Cannot accept new connections.\n"; 
+//         return EXIT_SUCCESS;
+//     }
     
-    if (clientSocket < 0)
-    {
-        *m_cout << __func__ << ":" << "Accept failed!\n";
-        logErrorMessage(ERROR_CODE);
-        return EXIT_FAILURE;
-    }
+//     if (clientSocket < 0)
+//     {
+//         *m_cout << __func__ << ":" << "Accept failed!\n";
+//         logErrorMessage(ERROR_CODE);
+//         return EXIT_FAILURE;
+//     }
     
-    if (!getClientIP(clientSocket))
-    {
-        return EXIT_FAILURE;
-    }        
+//     if (!getClientIP(clientSocket))
+//     {
+//         return EXIT_FAILURE;
+//     }        
     
-    *m_cout << __func__ << ":" << " Client connected successfully.\n";
-    auto result = m_ClientSockets.emplace(clientSocket);
-    if (!result.second)
-    {
-        *m_cout << __func__ << ":" << " Failed to add client socket to the set.\n";
-        CLOSESOCKET(clientSocket);
-        return EXIT_FAILURE;
-    }   
-    return clientSocket;
-}
+//     *m_cout << __func__ << ":" << " Client connected successfully.\n";
+//     auto result = m_ClientSockets.emplace(clientSocket);
+//     if (!result.second)
+//     {
+//         *m_cout << __func__ << ":" << " Failed to add client socket to the set.\n";
+//         CLOSESOCKET(clientSocket);
+//         return EXIT_FAILURE;
+//     }   
+//     return clientSocket;
+// }
 
 ServerSocket::~ServerSocket()
 {
@@ -433,45 +437,45 @@ bool ServerSocket::sendMessage(int sd, const string_view message)
     return true;
 }
 
-size_t ServerSocket::readMessage(string &message, int sd){
-    char buffer[BUFFER_SIZE];
-    memset(buffer, 0, sizeof(buffer));
-    size_t bytes_received = recv(sd, buffer, sizeof(buffer) - 1, 0);
-    if (getIsConnected() == false)
-    {
-        *m_cout << __func__ << ":" << "Server is shuting down. Cannot read messages.\n"; 
-        return EXIT_SUCCESS;
-    }
-    if (strcmp(buffer, "quit") == 0)
-    {
-        *m_cout << __func__ << ":" << "Quit command received. Closing connection.\n";
-        return EXIT_SUCCESS;
-    }
-    if (bytes_received > 0)
-    {
-        buffer[bytes_received] = '\0'; // Null-terminate the received data
-        //getClientIP(sd);
-        *m_cout << __func__ << ":" << "Message size: " << bytes_received << "\n";
-        *m_cout << __func__ << ":" << "Message from client: " << buffer << "\n";
-        message = string(buffer);
-        return bytes_received;
-    }
-    if (bytes_received == 0)
-    {
-        // Client closed the connection
-        return EXIT_SUCCESS;
-    }
-    else
-    {
-        *m_cout << __func__ << ":" << "Error receiving data from client.\n";
-        logErrorMessage(ERROR_CODE);;
-    }
-    return EXIT_FAILURE; // Indicate error or connection closed
-}
+// size_t ServerSocket::readMessage(string &message, int sd){
+//     char buffer[BUFFER_SIZE];
+//     memset(buffer, 0, sizeof(buffer));
+//     size_t bytes_received = recv(sd, buffer, sizeof(buffer) - 1, 0);
+//     if (getIsConnected() == false)
+//     {
+//         *m_cout << __func__ << ":" << "Server is shuting down. Cannot read messages.\n"; 
+//         return EXIT_SUCCESS;
+//     }
+//     if (strcmp(buffer, "quit") == 0)
+//     {
+//         *m_cout << __func__ << ":" << "Quit command received. Closing connection.\n";
+//         return EXIT_SUCCESS;
+//     }
+//     if (bytes_received > 0)
+//     {
+//         buffer[bytes_received] = '\0'; // Null-terminate the received data
+//         //getClientIP(sd);
+//         *m_cout << __func__ << ":" << "Message size: " << bytes_received << "\n";
+//         *m_cout << __func__ << ":" << "Message from client: " << buffer << "\n";
+//         message = string(buffer);
+//         return bytes_received;
+//     }
+//     if (bytes_received == 0)
+//     {
+//         // Client closed the connection
+//         return EXIT_SUCCESS;
+//     }
+//     else
+//     {
+//         *m_cout << __func__ << ":" << "Error receiving data from client.\n";
+//         logErrorMessage(ERROR_CODE);;
+//     }
+//     return EXIT_FAILURE; // Indicate error or connection closed
+// }
 
-size_t ServerSocket::getClientCount(){
-    return m_ClientSockets.size();
-}
+// size_t ServerSocket::getClientCount(){
+//     return m_ClientSockets.size();
+// }
 
 void ServerSocket::threadBroadcastMessage() {
     *m_cout << __func__ << ":" << "Broadcast thread started.\n";
@@ -515,26 +519,21 @@ unordered_set<int> ServerSocket::getClientSockets() const {
     return m_ClientSockets;
 }
 
-int ServerSocket::addBroadcastTextMessage(const string message, int sd) {
-    if (m_IsConnected.load())
-    {
-        m_BroadcastMessageQueue.push(make_pair(sd, message));
-        return EXIT_SUCCESS;
-    }
-    return EXIT_FAILURE; // Indicate failure if not connected
-}
+// int ServerSocket::addBroadcastTextMessage(const string message, int sd) {
+//     if (m_IsConnected.load())
+//     {
+//         m_BroadcastMessageQueue.push(make_pair(sd, message));
+//         return EXIT_SUCCESS;
+//     }
+//     return EXIT_FAILURE; // Indicate failure if not connected
+// }
 
-int ServerSocket::addBroadcastTextMessage(const string message) {
-    for (const auto &sd : m_ClientSockets){
-        if (addBroadcastTextMessage(message, sd) == EXIT_FAILURE){
-            return EXIT_FAILURE;
-        }
-    }
-    m_condVar.notify_one();
-    return EXIT_SUCCESS;
-}
-
-// inline unique_ptr<ServerSocket> ServerSocketFactory::create(unique_ptr<OutputStream> &outputStream, 
-//                                             const string& serverName, const string& portNumber){
-//     return make_unique<ServerSocket>(outputStream, serverName, portNumber);
+// int ServerSocket::addBroadcastTextMessage(const string message) {
+//     for (const auto &sd : m_ClientSockets){
+//         if (addBroadcastTextMessage(message, sd) == EXIT_FAILURE){
+//             return EXIT_FAILURE;
+//         }
+//     }
+//     m_condVar.notify_one();
+//     return EXIT_SUCCESS;
 // }

@@ -10,7 +10,7 @@ class threadSafeQueue
 {
 private:
 	mutex m_Mutex;
-	queue<shared_ptr<T> > dataQueue;
+	queue<shared_ptr<T>> dataQueue;
 	condition_variable dataCond;
 
 public:

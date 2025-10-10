@@ -19,9 +19,15 @@ private:
     mutex m_mutex;
 public:
     StartServer(const string& serverName, const string& portNumber);
-    void sendBroadcastTextMessage();
-    void readFromClient(int clientSocket);
-    void startReadFromClientThread(int clientSocket);
-    void listenClientConnections();
+    //void sendBroadcastTextMessage();
+    //void readFromClient(int clientSocket);
+    //void startReadFromClientThread(int clientSocket);
+    //void listenClientConnections();
     int Run();
+};
+struct ServerSocketFactory{
+    inline static unique_ptr<ServerSocket> create(unique_ptr<OutputStream> &outputStream, 
+                                            const string& serverName, const string& portNumber){
+        return make_unique<ServerSocket>(outputStream, serverName, portNumber);
+    };
 };

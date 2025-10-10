@@ -68,7 +68,11 @@ size_t ClientSocket::readMessage(string &message){
     char buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     size_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
-    if (bytes_received > 0)
+    if (bytes_received == ULLONG_MAX || bytes_received == 0)
+    {
+        cout << "Server closed the connection." << endl;
+    }
+    else if (bytes_received > 0)
     {
         buffer[bytes_received] = '\0'; // Null-terminate the received data
         cout << "Message size: " << bytes_received << endl;
@@ -79,10 +83,6 @@ size_t ClientSocket::readMessage(string &message){
     else if (strcmp(buffer, "quit") == 0)
     {
         cout << "Quit command received, closing connection." << "\n";
-    }
-    else if (bytes_received == 0)
-    {
-        cout << "Server closed the connection." << endl;
     }
     else
     {

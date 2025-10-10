@@ -17,6 +17,7 @@
 #endif
 
 #include "../utils/outputStream.h"
+#include "../utils/threadPool.h"
 
 using namespace std;
 
@@ -88,15 +89,17 @@ class ServerSocket{
         string m_PortNumber;
         atomic<bool> m_IsConnected{false};
         mutex m_mutex;
-        condition_variable_any m_condVar; // For signaling new messages
+        //condition_variable_any m_condVar; // For signaling new messages
         queue<pair<int, string>> m_BroadcastMessageQueue;
-        queue<string> m_SendMessageQueue;
+        //queue<string> m_SendMessageQueue;
         unordered_set<int> m_ClientSockets;
-        stop_source m_Source;
-        stop_token m_sToken;
+        //stop_source m_Source;
+        //stop_token m_sToken;
         jthread m_BroadcastThread;
         unique_ptr<OutputStream>& m_cout;
         fd_set m_Master; // master file descriptor list
+        vector<thread> m_Threads;
+        unique_ptr<threadPool> m_ThreadPool;
 
         // sendMessage - sends a specific message to the connected client
         // sd: the socket descriptor of the connected client
@@ -109,8 +112,7 @@ class ServerSocket{
 
         // handleClient - handles communication with a specific client
         // fd: the socket descriptor of the connected client
-        // fdmax: the maximum file descriptor number for select()
-        void handleClientMessage(int fd, int fdmax);
+        void handleClientMessage(int fd);
     public:
         // Constructor
         // outputStream: the OutputStream instance for logging
@@ -135,7 +137,7 @@ class ServerSocket{
         bool getIsConnected() const;
 
         // getMutex - returns the mutex for external locking if needed
-        mutex& getMutex();
+        //mutex& getMutex();
         
         // setIsConnected - sets the connection status
         void setIsConnected(bool isConnected);
@@ -144,16 +146,16 @@ class ServerSocket{
         // message: the message to be added
         // sd: the socket descriptor of the client to send the message to
         // Returns 0 on success, -1 on failure
-        int addBroadcastTextMessage(const string message, int sd);
+        //int addBroadcastTextMessage(const string message, int sd);
 
         // addBroadcastMessage - adds a message to the broadcast queue
         // message: the message to be added
         // Returns 0 on success, -1 on failure
-        int addBroadcastTextMessage(const string message);
+        //int addBroadcastTextMessage(const string message);
 
         // handleConnections - handle incoming client connections
         // Returns the client socket descriptor on success, -1 on failure
-        int handleConnections();
+        //int handleConnections();
         
         // handleSelectConnections - handles multiple client connections using select()
         void handleSelectConnections();
@@ -162,10 +164,10 @@ class ServerSocket{
         // message: output parameter to hold the received message
         // sd: the socket descriptor of the client to read from
         // Returns number of bytes read, or -1 on error/disconnection
-        size_t readMessage(string &message, int sd);
+        //size_t readMessage(string &message, int sd);
         
         // getClientCount - returns the number of currently connected clients
-        size_t getClientCount();
+        //size_t getClientCount();
 
         // closeSocket - closes the client socket 
         // sd: the socket descriptor 
@@ -183,11 +185,4 @@ class ServerSocket{
 
         // Destructor
         ~ServerSocket();
-};
-
-struct ServerSocketFactory{
-    inline static unique_ptr<ServerSocket> create(unique_ptr<OutputStream> &outputStream, 
-                                            const string& serverName, const string& portNumber){
-        return make_unique<ServerSocket>(outputStream, serverName, portNumber);
-    };
 };
