@@ -11,12 +11,12 @@ class StartServer {
 private:
     jthread readFromClientThread;
     jthread serverBroadcastThread;
-    unique_ptr<OutputStream> m_cout;
+    unique_ptr<OutputStream> m_Cout;
     unique_ptr<ServerSocket> m_ServerSocket;
     string serverName{};
     string portNumber{};
 
-    mutex m_mutex;
+    mutex m_Mutex;
 public:
     StartServer(const string& serverName, const string& portNumber);
     //void sendBroadcastTextMessage();

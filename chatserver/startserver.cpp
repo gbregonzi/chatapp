@@ -2,8 +2,8 @@
 
 
 StartServer::StartServer(const string& serverName, const string& portNumber): serverName(serverName), portNumber(portNumber) {
-    m_cout = LogFactory::create(m_mutex);
-    m_ServerSocket = ServerSocketFactory::create(m_cout, serverName, portNumber);
+    m_Cout = LogFactory::create(m_Mutex);
+    m_ServerSocket = ServerSocketFactory::create(m_Cout, serverName, portNumber);
 };
 
 int StartServer::Run(){
@@ -12,9 +12,9 @@ int StartServer::Run(){
         // sendBroadcastTextMessage();
         // listenClientConnections();
         m_ServerSocket->closeAllClientSockets();
-        *m_cout << __func__ << ":Server is shutting down...\n";
+        *m_Cout << __func__ << ":Server is shutting down...\n";
     } else {
-        *m_cout << __func__ << "Server failed to connect.\n";
+        *m_Cout << __func__ << "Server failed to connect.\n";
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;

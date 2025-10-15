@@ -8,21 +8,25 @@ using namespace std;
 class OutputStream  {
 private:
     ostream& m_os;
-    mutex& m_mutex;    
+    mutex& m_Mutex;    
 public:
 
-    OutputStream(mutex& _mutex, ostream& os) : m_mutex(_mutex), m_os(os) {}
+    OutputStream(mutex& _mutex, ostream& os) : m_Mutex(_mutex), m_os(os) {}
     
     template<typename T>
     OutputStream& operator <<(const T& data) {
-        lock_guard<mutex> lock(m_mutex);
-        m_os << data;
+        {
+            lock_guard<mutex> lock(m_Mutex);
+            m_os << data;
+        }
         return *this;
     }
     template<typename T>
     void log(const T& data) {
-        lock_guard<mutex> lock(m_mutex);
-        m_os << data << "\n";
+        {
+            lock_guard<mutex> lock(m_Mutex);
+            m_os << data << "\n";
+        }
     }
 };
 
