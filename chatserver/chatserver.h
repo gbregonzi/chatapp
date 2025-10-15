@@ -96,7 +96,7 @@ class ServerSocket{
         //stop_source m_Source;
         //stop_token m_sToken;
         jthread m_BroadcastThread;
-        unique_ptr<OutputStream>& m_cout;
+        unique_ptr<OutputStream>& m_Cout;
         fd_set m_Master; // master file descriptor list
         vector<thread> m_Threads;
         unique_ptr<threadPool> m_ThreadPool;

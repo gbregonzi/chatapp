@@ -10,8 +10,8 @@ class threadSafeQueue
 {
 private:
 	mutex m_Mutex;
-	queue<shared_ptr<T>> dataQueue;
-	condition_variable dataCond;
+	queue<shared_ptr<T>> m_DataQueue;
+	condition_variable m_DataCond;
 
 public:
 	threadSafeQueue()
@@ -21,56 +21,56 @@ public:
 	void waitAndPop(T& value)
 	{
 		unique_lock<mutex> lk(m_Mutex);
-		dataCond.wait(lk, [this] {
-			return !dataQueue.empty(); 
+		m_DataCond.wait(lk, [this] {
+			return !m_DataQueue.empty(); 
 		});
-		value = move(*dataQueue.front());
-		dataQueue.pop();
+		value = move(*m_DataQueue.front());
+		m_DataQueue.pop();
 	}
 
 	bool tryPop(T& value)
 	{
 		lock_guard<mutex> lk(m_Mutex);
-		if (dataQueue.empty())
+		if (m_DataQueue.empty())
 			return false;
-		value = move(*dataQueue.front());
-		dataQueue.pop();
+		value = move(*m_DataQueue.front());
+		m_DataQueue.pop();
 		return true;
 	}
 
 	shared_ptr<T> waitAndPop()
 	{
 		unique_lock<mutex> lk(m_Mutex);
-		dataCond.wait(lk, [this] {
-			return !dataQueue.empty(); 
+		m_DataCond.wait(lk, [this] {
+			return !m_DataQueue.empty(); 
 		});
-		shared_ptr<T> res = dataQueue.front();
-		dataQueue.pop();
+		shared_ptr<T> res = m_DataQueue.front();
+		m_DataQueue.pop();
 		return res;
 	}
 
 	shared_ptr<T> tryPop()
 	{
 		lock_guard<mutex> lk(m_Mutex);
-		if (dataQueue.empty())
+		if (m_DataQueue.empty())
 			return shared_ptr<T>();
-		shared_ptr<T> res = dataQueue.front();
-		dataQueue.pop();
+		shared_ptr<T> res = m_DataQueue.front();
+		m_DataQueue.pop();
 		return res;
 	}
 
 	bool empty() const
 	{
 		lock_guard<mutex> lk(m_Mutex);
-		return dataQueue.empty();
+		return m_DataQueue.empty();
 	}
 
 	void push(T new_value)
 	{
 		shared_ptr<T> data(make_shared<T>(move(new_value)));
 		lock_guard<mutex> lk(m_Mutex);
-		dataQueue.push(data);
-		dataCond.notify_one();
+		m_DataQueue.push(data);
+		m_DataCond.notify_one();
 	}
 }; 
 

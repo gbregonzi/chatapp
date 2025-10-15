@@ -36,7 +36,7 @@ private:
 	void WorkerThread();
 
     public:
-	threadPool(vector<thread> threads);
+	threadPool(vector<thread>& threads);
 	~threadPool();
 
 	template<typename Function_Type>
@@ -47,5 +47,18 @@ private:
 		m_WorkQueue.push(move(task)); // Push the task to the work queue
 		return res; // Return the future to the caller
 	}
+	
+	template<typename Function_Type, typename... Args>
+	auto submit(Function_Type&& f, Args&&... args)
+		-> future<invoke_result_t<Function_Type, Args...>> { // Accepts any callable and its arguments
+		using result_type = invoke_result_t<Function_Type, Args...>;
+		packaged_task<result_type()> task(
+			bind(forward<Function_Type>(f), forward<Args>(args)...)
+		); // Create a packaged task with bound arguments
+		future<result_type> res = task.get_future(); // Get the future from the packaged task
+		m_WorkQueue.push(move(task)); // Push the task to the work queue
+		return res; // Return the future to the caller
+	}
+
 	void runPendingTasks();
 };

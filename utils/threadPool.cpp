@@ -1,7 +1,7 @@
 #include "threadPool.h"
 
 
-threadPool::threadPool(vector<thread> threads) : m_Joiner(threads) {
+threadPool::threadPool(vector<thread> &threads) : m_Joiner(threads) {
 	int const num_threads = thread::hardware_concurrency();// Get the number of hardware threads available
 	try {
 		for (size_t i = 0; i < num_threads; ++i) {

@@ -12,6 +12,7 @@ private:
 public:
 
     OutputStream(mutex& _mutex, ostream& os) : m_mutex(_mutex), m_os(os) {}
+    
     template<typename T>
     OutputStream& operator <<(const T& data) {
         lock_guard<mutex> lock(m_mutex);

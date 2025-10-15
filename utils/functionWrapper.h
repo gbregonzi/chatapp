@@ -5,6 +5,7 @@
 using namespace std;
 
 class functionWrapper {
+private:
 	struct implBase {
 		virtual void call() = 0;
 		virtual ~implBase() {}
@@ -34,5 +35,5 @@ public:
 	functionWrapper& operator=(functionWrapper&& other) noexcept;
 
 	functionWrapper(const functionWrapper&) = delete; // Disable copy constructor
-	functionWrapper(functionWrapper&) = delete; // Disable copy assignment operator
+	functionWrapper& operator=(const functionWrapper&) = delete; // Disable copy assignment operator
 };
