@@ -159,13 +159,14 @@ void ServerSocket::handleSelectConnections() {
                     }
                     getClientIP(clientSocket);
                 } else {
-                    // auto ft = m_ThreadPool->submit([this, &fd]() {
-                    //     this->handleClientMessage(fd);
-                    // });
-                    auto ft = m_ThreadPool->submit(bind(&ServerSocket::handleClientMessage, this, fd));
+                    auto ft = m_ThreadPool->submit([this, &fd]() {
+                        this->handleClientMessage(fd);
+                    });
+                    // auto ft = m_ThreadPool->submit(bind(&ServerSocket::handleClientMessage, this, fd));
                     if (!ft.valid()) {
                         *m_Cout << __func__ << ":" << "Failed to submit task to thread pool.\n";
                     }
+                    //handleClientMessage(fd);
                 }
             }
         }

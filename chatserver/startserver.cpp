@@ -2,7 +2,7 @@
 
 
 StartServer::StartServer(const string& serverName, const string& portNumber): serverName(serverName), portNumber(portNumber) {
-    m_Cout = LogFactory::create(m_Mutex);
+    m_Cout = LogFactory::create();
     m_ServerSocket = ServerSocketFactory::create(m_Cout, serverName, portNumber);
 };
 

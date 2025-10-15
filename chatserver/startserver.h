@@ -15,8 +15,6 @@ private:
     unique_ptr<ServerSocket> m_ServerSocket;
     string serverName{};
     string portNumber{};
-
-    mutex m_Mutex;
 public:
     StartServer(const string& serverName, const string& portNumber);
     //void sendBroadcastTextMessage();
