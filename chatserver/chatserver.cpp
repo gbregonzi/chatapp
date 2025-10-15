@@ -159,9 +159,10 @@ void ServerSocket::handleSelectConnections() {
                     }
                     getClientIP(clientSocket);
                 } else {
-                    future<void> ft = m_ThreadPool->submit([this, &fd]() {
-                        this->handleClientMessage(fd);
-                    });
+                    // auto ft = m_ThreadPool->submit([this, &fd]() {
+                    //     this->handleClientMessage(fd);
+                    // });
+                    auto ft = m_ThreadPool->submit(bind(&ServerSocket::handleClientMessage, this, fd));
                     if (!ft.valid()) {
                         *m_Cout << __func__ << ":" << "Failed to submit task to thread pool.\n";
                     }
