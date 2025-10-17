@@ -76,6 +76,16 @@
     "xmemory": "cpp",
     "xstring": "cpp",
     "xtr1common": "cpp",
-    "xutility": "cpp"
+    "xutility": "cpp",
+    "filesystem": "cpp",
+    "fstream": "cpp",
+    "ios": "cpp",
+    "locale": "cpp",
+    "xiosbase": "cpp",
+    "xlocbuf": "cpp",
+    "xlocmon": "cpp",
+    "xlocnum": "cpp",
+    "xloctime": "cpp",
+    "codecvt": "cpp"
   }
 }

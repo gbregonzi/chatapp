@@ -12,9 +12,11 @@ file(GLOB SOURCES "*.cpp")
 
 add_library(functionWrapper STATIC functionWrapper.cpp functionWrapper.h)
 add_library(threadPool STATIC threadPool.h threadPool.cpp functionWrapper.cpp functionWrapper.h)
+add_library(logger STATIC logger.cpp logger.h)
 
 target_include_directories(functionWrapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(threadPool PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(logger PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Optionally, add tests here if needed
 

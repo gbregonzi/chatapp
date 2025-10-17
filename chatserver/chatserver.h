@@ -18,6 +18,7 @@
 
 #include "../utils/outputStream.h"
 #include "../utils/threadPool.h"
+#include "../utils/logger.h"
 
 using namespace std;
 
@@ -96,7 +97,7 @@ class ServerSocket{
         //stop_source m_Source;
         //stop_token m_sToken;
         jthread m_BroadcastThread;
-        unique_ptr<OutputStream>& m_Cout;
+        Logger& m_Logger;
         fd_set m_Master; // master file descriptor list
         vector<thread> m_Threads;
         unique_ptr<threadPool> m_ThreadPool;
@@ -115,10 +116,10 @@ class ServerSocket{
         void handleClientMessage(int fd);
     public:
         // Constructor
-        // outputStream: the OutputStream instance for logging
+        // logger: reference to Logger instance for logging
         // serverName: the server hostname or IP address
         // portNumber: the port number to bind the server socket
-        ServerSocket(unique_ptr<OutputStream> &outputStream, const string& serverName, const string& portNumber);
+        ServerSocket(Logger &logger, const string& serverName, const string& portNumber);
         
         // LogErrorMessage - prints error code and description
         // errorCode: the error code to be printed
@@ -141,33 +142,9 @@ class ServerSocket{
         
         // setIsConnected - sets the connection status
         void setIsConnected(bool isConnected);
-
-        // addBroadcastMessage - adds a message to the broadcast queue
-        // message: the message to be added
-        // sd: the socket descriptor of the client to send the message to
-        // Returns 0 on success, -1 on failure
-        //int addBroadcastTextMessage(const string message, int sd);
-
-        // addBroadcastMessage - adds a message to the broadcast queue
-        // message: the message to be added
-        // Returns 0 on success, -1 on failure
-        //int addBroadcastTextMessage(const string message);
-
-        // handleConnections - handle incoming client connections
-        // Returns the client socket descriptor on success, -1 on failure
-        //int handleConnections();
         
         // handleSelectConnections - handles multiple client connections using select()
         void handleSelectConnections();
-
-        // readMessage - reads a message from a specific client
-        // message: output parameter to hold the received message
-        // sd: the socket descriptor of the client to read from
-        // Returns number of bytes read, or -1 on error/disconnection
-        //size_t readMessage(string &message, int sd);
-        
-        // getClientCount - returns the number of currently connected clients
-        //size_t getClientCount();
 
         // closeSocket - closes the client socket 
         // sd: the socket descriptor 
@@ -185,4 +162,12 @@ class ServerSocket{
 
         // Destructor
         ~ServerSocket();
+};
+
+struct ServerSocketFactory{    
+    inline static ServerSocket& getInstance(Logger &logger, 
+                                            const string& serverName, const string& portNumber){
+        static ServerSocket instance(logger, serverName, portNumber);
+        return instance;
+    };   
 };

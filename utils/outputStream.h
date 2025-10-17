@@ -29,8 +29,12 @@ public:
 };
 
 struct LogFactory{
-    static unique_ptr<OutputStream>create(ostream& os = cout){
-            return make_unique<OutputStream>(os);
+    // static unique_ptr<OutputStream>create(ostream& os = cout){
+    //         return make_unique<OutputStream>(os);
+
+    static OutputStream& getInstance(ostream& os = cout){
+        static OutputStream instance(os);
+        return instance;
     } 
 };
 

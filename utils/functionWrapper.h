@@ -37,3 +37,4 @@ public:
 	functionWrapper(const functionWrapper&) = delete; // Disable copy constructor
 	functionWrapper& operator=(const functionWrapper&) = delete; // Disable copy assignment operator
 };
+
