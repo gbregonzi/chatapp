@@ -18,7 +18,7 @@ private:
 	path m_path{};
 	mutex m_mutex;
 	int maxLogSize;
-	bool doneFlag{ false };
+	atomic<bool> doneFlag{ false };
 	queue<string> m_queue{};
 	
 	//writeLog - Write a log message to the log file
@@ -91,7 +91,11 @@ public:
 
 	// isDone - Checks if the logger has finished processing messages
 	bool isDone();
-
+	
+	// setDone - Sets the done flag to indicate if the logger has finished processing messages
+	// done - The done flag to be set
+	void setDone(bool done);
+	
 	// stopProcessing - Stops the logger from processing messages
 	void stopProcessing();
 };

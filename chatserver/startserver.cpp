@@ -1,6 +1,5 @@
 #include "startserver.h"
 
-
 StartServer::StartServer(const string& serverName, const string& portNumber)
     : serverName(serverName),
       portNumber(portNumber),
@@ -12,8 +11,6 @@ StartServer::StartServer(const string& serverName, const string& portNumber)
 int StartServer::Run(){
     if (m_ServerSocket.getIsConnected()) {
         m_ServerSocket.handleSelectConnections();
-        // sendBroadcastTextMessage();
-        // listenClientConnections();
         m_ServerSocket.closeAllClientSockets();
         m_Logger.log(LogLevel::Info, "{}:{}", __func__ , "Server is shutting down...");
     } else {

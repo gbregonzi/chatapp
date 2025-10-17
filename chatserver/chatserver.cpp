@@ -126,7 +126,7 @@ void ServerSocket::handleSelectConnections() {
             logErrorMessage(ERROR_CODE);
             exit(EXIT_FAILURE);
         }
-        
+        m_Logger.log(LogLevel::Debug, "{}:{}",__func__, "Select returned, processing sockets...");  
         for(int fd = 0; fd <= fdMax; fd++) {
             if (FD_ISSET(fd, &readFds)) { // we got one!!
                 if (fd == m_sockfdListener) { // handle new connections
@@ -164,9 +164,10 @@ void ServerSocket::handleSelectConnections() {
                     });
                     // auto ft = m_ThreadPool->submit(bind(&ServerSocket::handleClientMessage, this, fd));
                     if (!ft.valid()) {
+                        m_ClientSockets.erase(fd);
+                        FD_CLR(fd, &m_Master);
                         m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Failed to submit task to thread pool.");
                     }
-                    //handleClientMessage(fd);
                 }
             }
         }
@@ -185,8 +186,10 @@ void ServerSocket::handleClientMessage(int fd) {
         CLOSESOCKET(fd);
         FD_CLR(fd, &m_Master); // remove from master set
         m_ClientSockets.erase(fd);
+        return;
     }
-    else if (bytes_received == ULLONG_MAX || bytes_received <= 0) {
+    
+    if (bytes_received == ULLONG_MAX || bytes_received <= 0) {
         // got error or connection closed by client
         if (bytes_received == ULLONG_MAX || bytes_received == 0) {
             // connection closed
@@ -198,19 +201,19 @@ void ServerSocket::handleClientMessage(int fd) {
         CLOSESOCKET(fd); // bye!
         FD_CLR(fd, &m_Master); // remove from master set
         m_ClientSockets.erase(fd);
+        return;
     }
-    else {
-        for(int j = 0; j < m_Master.fd_count; j++) {
-            // send to everyone!
-            if (FD_ISSET(m_Master.fd_array[j], &m_Master)) {
-                // except the listener and ourselves
-                if (m_Master.fd_array[j] != m_sockfdListener && m_Master.fd_array[j] != fd) {
-                    lock_guard<mutex> lock(m_mutex);
-                    auto result = m_BroadcastMessageQueue.emplace(make_pair(m_Master.fd_array[j], string(buffer)));
-                    if (!result.first) {
-                        m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Failed to add message to broadcast queue.");
-                        continue;
-                    }
+    
+    for(int j = 0; j < m_Master.fd_count; j++) {
+        // send to everyone!
+        if (FD_ISSET(m_Master.fd_array[j], &m_Master)) {
+            // except the listener and ourselves
+            if (m_Master.fd_array[j] != m_sockfdListener && m_Master.fd_array[j] != fd) {
+                lock_guard<mutex> lock(m_mutex);
+                auto result = m_BroadcastMessageQueue.emplace(make_pair(m_Master.fd_array[j], string(buffer)));
+                if (!result.first) {
+                    m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Failed to add message to broadcast queue.");
+                    continue;
                 }
             }
         }
@@ -306,6 +309,7 @@ ServerSocket::~ServerSocket()
      WSACleanup();
 #endif
      m_Logger.log(LogLevel::Debug, "{}:{}",__func__, " ServerSocket class destroyed.");
+     m_Logger.setDone(true);
 }
 
 bool ServerSocket::sendMessage(int sd, const string_view message)

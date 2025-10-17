@@ -16,7 +16,6 @@ Logger::Logger(const string_view fileName, int _maxLogSize) : maxLogSize(_maxLog
 	static_assert(!is_copy_constructible_v<Logger>, "Logger should not be copy constructible");
 	static_assert(!is_copy_assignable_v<Logger>, "Logger should not be copy assignable");
 	static_assert(!is_move_assignable_v<Logger>, "Logger should not be move assignable");
-	cout << "--- Logger Constructor Called! ---\n";
 	m_path = current_path().string() + R"(\Log\)" + fileName.data();
 	renameLogFile();
 	if (openFile()) {
@@ -28,7 +27,6 @@ Logger::Logger(const string_view fileName, int _maxLogSize) : maxLogSize(_maxLog
 }
 
 Logger::~Logger() {
-	//cout << "Logger destructor called" << "\n";
 	while(!m_queue.empty()) {
 		this_thread::sleep_for(chrono::milliseconds(100)); // Wait for the queue to be processed
 	}	
@@ -103,11 +101,16 @@ bool Logger::renameLogFile() {
 }
 
 bool Logger::isDone() {
-	return doneFlag;
+	return doneFlag.load();
 }
+
+void Logger::setDone(bool done) {
+	doneFlag.store(done);
+}
+
 void Logger::stopProcessing() {
 	cout << "Stopping Logger processing messages" << "\n";	
-	doneFlag = true;
+	doneFlag.store(true);
 	if (os.is_open()) {
 		os.flush();
 		os.close();
@@ -128,7 +131,7 @@ void Logger::log(const LogLevel &logLevel, const string& message) {
     oss << "[" << put_time(&tm_buf, "%F %T") << ':' << setfill('0') << setw(3) << ms.count() << "] "
         << "[" << toString(logLevel) << "] " << message;
 	
-    if (!doneFlag) {
+    if (!doneFlag.load()) {
         m_queue.emplace(oss.str());
     }
     else {
@@ -177,6 +180,11 @@ bool Logger::writeLog(const string& message) noexcept
         logError(string("Could not write to log file:" + m_path.filename().string()), errno);
         return false;
     }
+	os.flush();
+	if (!os.good()) {
+		logError(string("Could not flush log file:" + m_path.filename().string()), errno);
+		return false;
+	}
 	return true;
 }
 
@@ -193,7 +201,7 @@ string Logger::toString(const LogLevel &level) {
 void Logger::processingMessages() {
 	cout << "Starting Logger processing messages" << "\n";
 	thread processingMessagesThread([this] {
-		while (!doneFlag) {
+		while (!doneFlag.load()) {
 			if (size() > maxLogSize) {
 				renameLogFile(); // Rename the log file if it exceeds the size limit
 				if (!openFile()) { // Reopen the log file after renaming
