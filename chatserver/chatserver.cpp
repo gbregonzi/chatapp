@@ -53,7 +53,8 @@ ServerSocket::ServerSocket(Logger& logger, const string& serverName, const strin
         m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Getaddrinfo failed!");
         m_Logger.log(LogLevel::Error, "{}:{}{}",__func__, "Error Code:", ERROR_CODE);
         m_Logger.log(LogLevel::Error, "{}:{}",__func__, gai_strerror(ERROR_CODE));
-        logErrorMessage(ERROR_CODE);
+        
+        m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
         exit(EXIT_FAILURE);
     }
     
@@ -68,7 +69,7 @@ ServerSocket::ServerSocket(Logger& logger, const string& serverName, const strin
         if (setsockopt(m_sockfdListener, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) < 0)
         {
             m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Setsockopt failed!");
-            logErrorMessage(ERROR_CODE);
+            m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
             CLOSESOCKET(m_sockfdListener);
             continue;
         }
@@ -79,7 +80,7 @@ ServerSocket::ServerSocket(Logger& logger, const string& serverName, const strin
         }
         
         m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Bind failed! Retrying...");
-        logErrorMessage(ERROR_CODE);
+        m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
         CLOSESOCKET(m_sockfdListener);
     }
     
@@ -99,7 +100,7 @@ ServerSocket::ServerSocket(Logger& logger, const string& serverName, const strin
     if (listen(m_sockfdListener, MAX_QUEUE_CONNECTINON) < 0)
     {
         m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Listen failed!");
-        logErrorMessage(ERROR_CODE);
+        m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
         exit(EXIT_FAILURE);
     }
     m_Logger.log(LogLevel::Info, "{}:{}{}{}{}",__func__, "Server name:", hostName, " Port:", service); 
@@ -123,7 +124,7 @@ void ServerSocket::handleSelectConnections() {
         if (select(fdMax+1, &readFds, nullptr, nullptr, nullptr) == -1) {
             m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Select failed!");
             setIsConnected(false);
-            logErrorMessage(ERROR_CODE);
+            m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
             exit(EXIT_FAILURE);
         }
         m_Logger.log(LogLevel::Debug, "{}:{}",__func__, "Select returned, processing sockets...");  
@@ -141,7 +142,7 @@ void ServerSocket::handleSelectConnections() {
                     if (clientSocket < 0)
                     {
                         m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Accept failed!");
-                        logErrorMessage(ERROR_CODE);
+                        m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
                         continue;
                     }
                     
@@ -163,11 +164,11 @@ void ServerSocket::handleSelectConnections() {
                         this->handleClientMessage(fd);
                     });
                     // auto ft = m_ThreadPool->submit(bind(&ServerSocket::handleClientMessage, this, fd));
-                    if (!ft.valid()) {
-                        m_ClientSockets.erase(fd);
-                        FD_CLR(fd, &m_Master);
-                        m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Failed to submit task to thread pool.");
-                    }
+                    // if (!ft.valid()) {
+                    //     m_ClientSockets.erase(fd);
+                    //     FD_CLR(fd, &m_Master);
+                    //     m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Failed to submit task to thread pool.");
+                    // }
                 }
             }
         }
@@ -192,13 +193,12 @@ void ServerSocket::handleClientMessage(int fd) {
     if (bytes_received == ULLONG_MAX || bytes_received <= 0) {
         // got error or connection closed by client
         if (bytes_received == ULLONG_MAX || bytes_received == 0) {
-            // connection closed
             m_Logger.log(LogLevel::Debug, "{}:{}{}{}",__func__, "Socket:", fd, " hung up");
         } else {
             m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Recv from client failed!");
-            logErrorMessage(ERROR_CODE);
+            m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
         }
-        CLOSESOCKET(fd); // bye!
+        CLOSESOCKET(fd); 
         FD_CLR(fd, &m_Master); // remove from master set
         m_ClientSockets.erase(fd);
         return;
@@ -220,12 +220,6 @@ void ServerSocket::handleClientMessage(int fd) {
     }
 }
 
-void ServerSocket::logErrorMessage(int errorCode)
-{
-    m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", errorCode);;
-}
-
-
 bool ServerSocket::getIsConnected() const
 {
     return m_IsConnected.load();
@@ -238,9 +232,9 @@ void ServerSocket::setIsConnected(bool isConnected)
 
 void ServerSocket::closeSocketServer() 
 {
+    m_Logger.log(LogLevel::Debug, "{}:{}",__func__, " Server socket closed.");    
     CLOSESOCKET(m_sockfdListener);
     m_BroadcastThread.request_stop();
-    m_Logger.log(LogLevel::Debug, "{}:{}",__func__, " Server socket closed.");    
 }
 void ServerSocket::closeAllClientSockets() 
 {
@@ -318,7 +312,7 @@ bool ServerSocket::sendMessage(int sd, const string_view message)
     if (bytesSent < 0)
     {
         m_Logger.log(LogLevel::Error, "{}:{}",__func__, " Send to client failed!");
-        logErrorMessage(ERROR_CODE);
+        m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
         return false;
     }
     return true;
@@ -351,7 +345,7 @@ void ServerSocket::threadBroadcastMessage() {
             }
             this_thread::yield;
         }
-        m_Logger.log(LogLevel::Error, "threadBroadcastMessage:Broadcast thread stoped");
+        m_Logger.log(LogLevel::Debug, "threadBroadcastMessage:Broadcast thread stoped");
     });
 }
 

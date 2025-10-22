@@ -27,13 +27,14 @@ Logger::Logger(const string_view fileName, int _maxLogSize) : maxLogSize(_maxLog
 }
 
 Logger::~Logger() {
-	while(!m_queue.empty()) {
-		this_thread::sleep_for(chrono::milliseconds(100)); // Wait for the queue to be processed
-	}	
+	// while(!m_queue.empty()) {
+	// 	this_thread::sleep_for(chrono::milliseconds(100)); // Wait for the queue to be processed
+	// }	
 	stopProcessing(); // Ensure we stop processing when the logger is destroyed
 }
 
 bool Logger::closeFile() {
+	lock_guard<mutex> Lock(m_mutex);
 	if (os.is_open()) {
 		os.flush();
 		os.close();
@@ -53,10 +54,12 @@ size_t Logger::size() {
 }
 
 bool Logger::isOpen() {
+	lock_guard<mutex> Lock(m_mutex);
 	return os.is_open();
 }
 
 bool Logger::eof() {
+	lock_guard<mutex> Lock(m_mutex);
 	return os.eof();
 }
 
@@ -80,11 +83,11 @@ bool Logger::renameLogFile() {
 
 	char timeStr[30]{ 0 };
 	strftime(timeStr, sizeof(timeStr), "%Y%m%d%H%M%S", &tm_buf);
-	ostringstream os;
-	os << timeStr << '.' << setfill('0') << setw(3) << ms.count();
+	ostringstream oss;
+	oss << timeStr << '.' << setfill('0') << setw(3) << ms.count();
 	string extension = m_path.extension().string();
 	m_path.replace_extension(""); // Remove the extension for renaming
-	string newFileName = m_path.string() + "_" + os.str() + extension;
+	string newFileName = m_path.string() + "_" + oss.str() + extension;
 	
 	if (exists(newFileName)) {
 		remove(newFileName);
@@ -110,6 +113,11 @@ void Logger::setDone(bool done) {
 
 void Logger::stopProcessing() {
 	cout << "Stopping Logger processing messages" << "\n";	
+	lock_guard<mutex> Lock(m_mutex);
+	while(!m_queue.empty()) {
+		this_thread::sleep_for(chrono::milliseconds(100)); // Wait for the queue to be processed
+	}	
+
 	doneFlag.store(true);
 	if (os.is_open()) {
 		os.flush();
@@ -135,7 +143,7 @@ void Logger::log(const LogLevel &logLevel, const string& message) {
         m_queue.emplace(oss.str());
     }
     else {
-        cout << "Logger is stopped, cannot log message: " << message << "\n";
+        cout << "Logger is stopped, cannot log message: " << oss.str() << "\n";
     }
 }
 
@@ -146,6 +154,7 @@ void Logger::logError(const string_view errorMsg, int errorCode) {
 
 bool Logger::openFile() {
 	try {
+		lock_guard<mutex> Lock(m_mutex);
 		path workDir = m_path.parent_path();
 		if (!is_directory(workDir)) {
 			cout << "Creating path:" << workDir.string() << "\n";
@@ -173,7 +182,6 @@ bool Logger::openFile() {
 
 bool Logger::writeLog(const string& message) noexcept
 {
-
 	os << message << "\n";
 
     if (!os.good()) {

@@ -121,10 +121,6 @@ class ServerSocket{
         // portNumber: the port number to bind the server socket
         ServerSocket(Logger &logger, const string& serverName, const string& portNumber);
         
-        // LogErrorMessage - prints error code and description
-        // errorCode: the error code to be printed
-        void logErrorMessage(int errorCode);
-
         // getClientIP - retrieves and prints the connected client's IP address and port
         // sd: the socket descriptor of the connected client
         // Returns true if successful, false otherwise
