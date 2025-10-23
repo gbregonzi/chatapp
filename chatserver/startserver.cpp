@@ -13,9 +13,8 @@ int StartServer::Run(){
         m_ServerSocket.handleSelectConnections();
         m_ServerSocket.closeAllClientSockets();
         m_Logger.log(LogLevel::Info, "{}:{}", __func__ , "Server is shutting down...");
-    } else {
-        m_Logger.log(LogLevel::Error, "{}:{}", __func__ ,"Server failed to connect.");
-        return EXIT_FAILURE;
+        return EXIT_SUCCESS;
     }
-    return EXIT_SUCCESS;
+    m_Logger.log(LogLevel::Error, "{}:{}", __func__ ,"Server failed to connect.");
+    return EXIT_FAILURE;
 }  

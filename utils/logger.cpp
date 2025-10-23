@@ -108,6 +108,9 @@ bool Logger::isDone() {
 }
 
 void Logger::setDone(bool done) {
+	if (done){
+		m_ThreadProcessMessages.request_stop();
+	}
 	doneFlag.store(done);
 }
 
@@ -117,7 +120,7 @@ void Logger::stopProcessing() {
 	while(!m_queue.empty()) {
 		this_thread::sleep_for(chrono::milliseconds(100)); // Wait for the queue to be processed
 	}	
-
+	m_ThreadProcessMessages.request_stop();
 	doneFlag.store(true);
 	if (os.is_open()) {
 		os.flush();
@@ -208,8 +211,8 @@ string Logger::toString(const LogLevel &level) {
 
 void Logger::processingMessages() {
 	cout << "Starting Logger processing messages" << "\n";
-	thread processingMessagesThread([this] {
-		while (!doneFlag.load()) {
+	 m_ThreadProcessMessages = jthread([this](stop_token sToken) {
+		while (!sToken.stop_requested()) {
 			if (size() > maxLogSize) {
 				renameLogFile(); // Rename the log file if it exceeds the size limit
 				if (!openFile()) { // Reopen the log file after renaming
@@ -234,5 +237,4 @@ void Logger::processingMessages() {
 			}
 		}
 	});
-	processingMessagesThread.detach(); // Detach the thread to run independently
 }

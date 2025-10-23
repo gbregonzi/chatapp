@@ -20,6 +20,7 @@ private:
 	int maxLogSize;
 	atomic<bool> doneFlag{ false };
 	queue<string> m_queue{};
+	jthread m_ThreadProcessMessages;
 	
 	//writeLog - Write a log message to the log file
 	// message - The message to be logged 

@@ -32,7 +32,7 @@ ServerSocket::ServerSocket(Logger& logger, const string& serverName, const strin
 #ifdef _WIN32
     WSADATA d;
     if (WSAStartup(MAKEWORD(2,2), &d)) {
-        m_Logger.log(LogLevel::Error, "{}:{}", __func__, "Failed to initialize Winsock!");
+        m_Logger.log(LogLevel::Error, "{}:Failed to initialize Winsock!", __func__);
         exit(EXIT_FAILURE);
     }
 #endif
@@ -50,11 +50,11 @@ ServerSocket::ServerSocket(Logger& logger, const string& serverName, const strin
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
     if (getaddrinfo(m_ServerName.c_str(), m_PortNumber.c_str(), &hints, &ai) != 0) {
-        m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Getaddrinfo failed!");
-        m_Logger.log(LogLevel::Error, "{}:{}{}",__func__, "Error Code:", ERROR_CODE);
+        m_Logger.log(LogLevel::Error, "{}:Getaddrinfo failed!",__func__);
+        m_Logger.log(LogLevel::Error, "{}:Error Code:{}",__func__, ERROR_CODE);
         m_Logger.log(LogLevel::Error, "{}:{}",__func__, gai_strerror(ERROR_CODE));
         
-        m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
+        m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__ , ERROR_CODE);
         exit(EXIT_FAILURE);
     }
     
@@ -68,8 +68,8 @@ ServerSocket::ServerSocket(Logger& logger, const string& serverName, const strin
         int optlen{sizeof(optval)};
         if (setsockopt(m_sockfdListener, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) < 0)
         {
-            m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Setsockopt failed!");
-            m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
+            m_Logger.log(LogLevel::Error, "{}:Setsockopt failed!",__func__);
+            m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
             CLOSESOCKET(m_sockfdListener);
             continue;
         }
@@ -79,31 +79,31 @@ ServerSocket::ServerSocket(Logger& logger, const string& serverName, const strin
             break; // Success
         }
         
-        m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Bind failed! Retrying...");
-        m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
+        m_Logger.log(LogLevel::Error, "{}:Bind failed! Retrying...",__func__);
+        m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
         CLOSESOCKET(m_sockfdListener);
     }
     
 
     if (p == nullptr) {
-        m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Failed to bind socket!");
+        m_Logger.log(LogLevel::Error, "{}:Failed to bind socket!",__func__);
         exit(EXIT_FAILURE);
     }
     
-    m_Logger.log(LogLevel::Info, "{}:{}",__func__, "Server created and bound successfully.");
+    m_Logger.log(LogLevel::Info, "{}:Server created and bound successfully.",__func__);
     
     if (getnameinfo(p->ai_addr, p->ai_addrlen, hostName, sizeof(hostName), service, sizeof(service), NI_NOFQDN|NI_NAMEREQD) != 0) {
-        m_Logger.log(LogLevel::Error, "{}:{}",__func__, "getnameinfo fail!");
+        m_Logger.log(LogLevel::Error, "{}:getnameinfo fail!",__func__);
     }
     
     freeaddrinfo(ai); // all done with this
     if (listen(m_sockfdListener, MAX_QUEUE_CONNECTINON) < 0)
     {
-        m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Listen failed!");
-        m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
+        m_Logger.log(LogLevel::Error, "{}:Listen failed!",__func__);
+        m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
         exit(EXIT_FAILURE);
     }
-    m_Logger.log(LogLevel::Info, "{}:{}{}{}{}",__func__, "Server name:", hostName, " Port:", service); 
+    m_Logger.log(LogLevel::Info, "{}:Server name:{} Port:{}",__func__, hostName, service); 
     m_IsConnected.store(true);
     m_ThreadPool = make_unique<threadPool>(m_Threads);
     threadBroadcastMessage();
@@ -122,35 +122,35 @@ void ServerSocket::handleSelectConnections() {
     while(getIsConnected()) {
         readFds = m_Master; // copy it
         if (select(fdMax+1, &readFds, nullptr, nullptr, nullptr) == -1) {
-            m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Select failed!");
+            m_Logger.log(LogLevel::Error, "{}:Select failed!",__func__);
             setIsConnected(false);
-            m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
+            m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__ , ERROR_CODE);
             exit(EXIT_FAILURE);
         }
-        m_Logger.log(LogLevel::Debug, "{}:{}",__func__, "Select returned, processing sockets...");  
+        m_Logger.log(LogLevel::Debug, "{}:Select returned, processing sockets...",__func__);  
         for(int fd = 0; fd <= fdMax; fd++) {
-            if (FD_ISSET(fd, &readFds)) { // we got one!!
+            if (FD_ISSET(fd, &readFds)) { 
                 if (fd == m_sockfdListener) { // handle new connections
                     socklen_t clientAddrLen = sizeof(remoteAddr);
                     int  clientSocket = accept(m_sockfdListener, (struct sockaddr *)&remoteAddr, &clientAddrLen);
                     if (getIsConnected() == false)
                     {
-                        m_Logger.log(LogLevel::Debug, "{}:{}",__func__, "Server is shutting down. Cannot accept new connections."); 
+                        m_Logger.log(LogLevel::Debug, "{}:Server is shutting down. Cannot accept new connections.",__func__); 
                         CLOSESOCKET(clientSocket);
                         break;
                     }
                     if (clientSocket < 0)
                     {
-                        m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Accept failed!");
-                        m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
+                        m_Logger.log(LogLevel::Error, "{}:Accept failed!",__func__);
+                        m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__ , ERROR_CODE);
                         continue;
                     }
                     
-                    m_Logger.log(LogLevel::Debug, "{}:{}",__func__, "Client connected successfully.");
+                    m_Logger.log(LogLevel::Debug, "{}:Client connected successfully.",__func__);
                     auto result = m_ClientSockets.emplace(clientSocket);
                     if (!result.second)
                     {
-                        m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Failed to add client socket to the set.");
+                        m_Logger.log(LogLevel::Error, "{}:Failed to add client socket to the set.",__func__);
                         CLOSESOCKET(clientSocket);
                         continue;
                     }   
@@ -160,14 +160,14 @@ void ServerSocket::handleSelectConnections() {
                     }
                     getClientIP(clientSocket);
                 } else {
-                    auto ft = m_ThreadPool->submit([this, &fd]() {
+                    auto ft = m_ThreadPool->submit([this, fd]() {
                         this->handleClientMessage(fd);
                     });
                     // auto ft = m_ThreadPool->submit(bind(&ServerSocket::handleClientMessage, this, fd));
                     // if (!ft.valid()) {
                     //     m_ClientSockets.erase(fd);
                     //     FD_CLR(fd, &m_Master);
-                    //     m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Failed to submit task to thread pool.");
+                    //     m_Logger.log(LogLevel::Error, "{}:Failed to submit task to thread pool.",__func__);
                     // }
                 }
             }
@@ -177,13 +177,15 @@ void ServerSocket::handleSelectConnections() {
 
 // handle data from a client
 void ServerSocket::handleClientMessage(int fd) {
-    //m_Logger.log(LogLevel::Debug, "{}:{}{}",__func__, "Thread id:", this_thread::get_id());  
+    ostringstream  threadId;
+    threadId << this_thread::get_id();
+    m_Logger.log(LogLevel::Debug, "{}:Thread id:{}",__func__,threadId.str());  
     char buffer[BUFFER_SIZE];
     memset(buffer, 0, sizeof(buffer));
     size_t bytes_received = recv(fd, buffer, sizeof(buffer) - 1, 0);
     if (getIsConnected() == false)
     {
-        m_Logger.log(LogLevel::Info, "{}:{}",__func__, "Server is shuting down. Cannot read messages."); 
+        m_Logger.log(LogLevel::Info, "{}:Server is shuting down. Cannot read messages.",__func__); 
         CLOSESOCKET(fd);
         FD_CLR(fd, &m_Master); // remove from master set
         m_ClientSockets.erase(fd);
@@ -193,10 +195,10 @@ void ServerSocket::handleClientMessage(int fd) {
     if (bytes_received == ULLONG_MAX || bytes_received <= 0) {
         // got error or connection closed by client
         if (bytes_received == ULLONG_MAX || bytes_received == 0) {
-            m_Logger.log(LogLevel::Debug, "{}:{}{}{}",__func__, "Socket:", fd, " hung up");
+            m_Logger.log(LogLevel::Debug, "{}:Socket:{} hung up",__func__, fd);
         } else {
-            m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Recv from client failed!");
-            m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
+            m_Logger.log(LogLevel::Error, "{}:Recv from client failed!",__func__);
+            m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
         }
         CLOSESOCKET(fd); 
         FD_CLR(fd, &m_Master); // remove from master set
@@ -212,7 +214,7 @@ void ServerSocket::handleClientMessage(int fd) {
                 lock_guard<mutex> lock(m_mutex);
                 auto result = m_BroadcastMessageQueue.emplace(make_pair(m_Master.fd_array[j], string(buffer)));
                 if (!result.first) {
-                    m_Logger.log(LogLevel::Error, "{}:{}",__func__, "Failed to add message to broadcast queue.");
+                    m_Logger.log(LogLevel::Error, "{}:Failed to add message to broadcast queue.",__func__);
                     continue;
                 }
             }
@@ -232,7 +234,7 @@ void ServerSocket::setIsConnected(bool isConnected)
 
 void ServerSocket::closeSocketServer() 
 {
-    m_Logger.log(LogLevel::Debug, "{}:{}",__func__, " Server socket closed.");    
+    m_Logger.log(LogLevel::Debug, "{}:Server socket closed.",__func__);    
     CLOSESOCKET(m_sockfdListener);
     m_BroadcastThread.request_stop();
 }
@@ -242,7 +244,7 @@ void ServerSocket::closeAllClientSockets()
         CLOSESOCKET(sd);
     }
     m_ClientSockets.clear();
-    m_Logger.log(LogLevel::Debug, "{}:{}",__func__, " All client sockets closed.");    
+    m_Logger.log(LogLevel::Debug, "{}:All client sockets closed.",__func__);    
 }
 
 bool ServerSocket::getClientIP(addrinfo* p){
@@ -277,7 +279,7 @@ bool ServerSocket::getClientIP(int sd )
     const char *ipVer;
     if (getpeername(sd, (struct sockaddr *)&sockAddr, &sockAddrLen) != 0)
     {
-        m_Logger.log(LogLevel::Error, "{}:{}{}",__func__, " Getpeername failed! Error: ", errno);
+        m_Logger.log(LogLevel::Error, "{}:Getpeername failed! Error: {}",__func__, errno);
         return false;
     }
     
@@ -292,7 +294,7 @@ bool ServerSocket::getClientIP(int sd )
         inet_ntop(AF_INET6, &s->sin6_addr, ip, sizeof(ip));
         ipVer = "IPV6:";
     }
-    m_Logger.log(LogLevel::Info, "{}:{}:{}{}{}",__func__,  ipVer, ip, " Socket: ", port);
+    m_Logger.log(LogLevel::Info, "{}:{}:{} Socket: {}",__func__,  ipVer, ip, port);
     return true;
 }
 
@@ -302,7 +304,7 @@ ServerSocket::~ServerSocket()
 #ifdef _WIN32
      WSACleanup();
 #endif
-     m_Logger.log(LogLevel::Debug, "{}:{}",__func__, " ServerSocket class destroyed.");
+     m_Logger.log(LogLevel::Debug, "{}:ServerSocket class destroyed.",__func__);
      m_Logger.setDone(true);
 }
 
@@ -311,15 +313,15 @@ bool ServerSocket::sendMessage(int sd, const string_view message)
     size_t bytesSent = send(sd, message.data(), message.length(), 0);
     if (bytesSent < 0)
     {
-        m_Logger.log(LogLevel::Error, "{}:{}",__func__, " Send to client failed!");
-        m_Logger.log(LogLevel::Info, "{}:{}{}", __func__ , "Error Code:", ERROR_CODE);
+        m_Logger.log(LogLevel::Error, "{}:Send to client failed!",__func__);
+        m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
         return false;
     }
     return true;
 }
 
 void ServerSocket::threadBroadcastMessage() {
-    m_Logger.log(LogLevel::Debug, "Broadcast thread started.");
+    m_Logger.log(LogLevel::Debug, "{}:Broadcast thread started.", __func__);
 
     m_BroadcastThread = jthread([this](stop_token token) {
         while (!token.stop_requested()) {
@@ -337,9 +339,9 @@ void ServerSocket::threadBroadcastMessage() {
                 int sd = front.first;
                 const string& message = front.second;
                 if (sendMessage(sd, message)) {
-                    m_Logger.log(LogLevel::Debug, "{}{}{}{}", "threadBroadcastMessage:sd: ", sd, ": Sent message to client: ", message);
+                    m_Logger.log(LogLevel::Debug, "threadBroadcastMessage:sd:{} Sent message to client:{}",sd, message);
                 } else {
-                    m_Logger.log(LogLevel::Error, "{}{}", "threadBroadcastMessage:Failed to send message to client: ", sd);
+                    m_Logger.log(LogLevel::Error, "threadBroadcastMessage:Failed to send message to client:{}", sd);
                 }
                 m_Logger.log(LogLevel::Debug, "threadBroadcastMessage:***********************************************");
             }
@@ -353,7 +355,7 @@ void ServerSocket::closeSocket(int sd)
 {
     CLOSESOCKET(sd);
     m_ClientSockets.erase(sd);
-    m_Logger.log(LogLevel::Debug, "{}:{}",__func__, " Socket closed.");
+    m_Logger.log(LogLevel::Debug, "{}:Socket closed.",__func__);
 }
 
 unordered_set<int> ServerSocket::getClientSockets() const {

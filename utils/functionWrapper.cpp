@@ -19,7 +19,7 @@ functionWrapper::functionWrapper(functionWrapper&& other) noexcept{
 }
 
 functionWrapper& functionWrapper::operator=(functionWrapper&& other) noexcept{
-	impl = std::move(other.impl);
+	impl = move(other.impl);
 	return *this;
 }
 
