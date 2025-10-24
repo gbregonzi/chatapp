@@ -27,9 +27,6 @@ Logger::Logger(const string_view fileName, int _maxLogSize) : maxLogSize(_maxLog
 }
 
 Logger::~Logger() {
-	// while(!m_queue.empty()) {
-	// 	this_thread::sleep_for(chrono::milliseconds(100)); // Wait for the queue to be processed
-	// }	
 	stopProcessing(); // Ensure we stop processing when the logger is destroyed
 }
 
@@ -116,16 +113,23 @@ void Logger::setDone(bool done) {
 
 void Logger::stopProcessing() {
 	cout << "Stopping Logger processing messages" << "\n";	
-	lock_guard<mutex> Lock(m_mutex);
-	while(!m_queue.empty()) {
+	while(!doneFlag.load())
+	{
+		{
+			lock_guard<mutex> Lock(m_mutex);
+			if (m_queue.empty()) {
+				m_ThreadProcessMessages.request_stop();
+				doneFlag.store(true);
+				if (os.is_open()) {
+					os.flush();
+					os.close();
+				}
+				break;
+			}
+		}
 		this_thread::sleep_for(chrono::milliseconds(100)); // Wait for the queue to be processed
-	}	
-	m_ThreadProcessMessages.request_stop();
-	doneFlag.store(true);
-	if (os.is_open()) {
-		os.flush();
-		os.close();
 	}
+	
 }
 
 void Logger::log(const LogLevel &logLevel, const string& message) {

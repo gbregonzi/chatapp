@@ -117,10 +117,15 @@ void ServerSocket::handleSelectConnections() {
     
     FD_SET(m_sockfdListener, &m_Master);
     fdMax = m_sockfdListener; 
+    m_Logger.log(LogLevel::Debug, "{}:m_sockfdListener:{}",__func__, m_sockfdListener);  
+
     setIsConnected(true);
     
     while(getIsConnected()) {
-        readFds = m_Master; // copy it
+        {
+            lock_guard<mutex> lock(m_mutex);
+            readFds = m_Master; // copy it
+        }
         if (select(fdMax+1, &readFds, nullptr, nullptr, nullptr) == -1) {
             m_Logger.log(LogLevel::Error, "{}:Select failed!",__func__);
             setIsConnected(false);
@@ -154,16 +159,18 @@ void ServerSocket::handleSelectConnections() {
                         CLOSESOCKET(clientSocket);
                         continue;
                     }   
+                    lock_guard<mutex> lock(m_mutex);
                     FD_SET(clientSocket, &m_Master); // add to master set
                     if (clientSocket > fdMax) {    // keep track of the max
                         fdMax = clientSocket;
                     }
                     getClientIP(clientSocket);
                 } else {
-                    auto ft = m_ThreadPool->submit([this, fd]() {
-                        this->handleClientMessage(fd);
-                    });
-                    // auto ft = m_ThreadPool->submit(bind(&ServerSocket::handleClientMessage, this, fd));
+                    // auto ft = m_ThreadPool->submit([this, fd]() {
+                    //     this->handleClientMessage(fd);
+                    // });
+                    m_Logger.log(LogLevel::Debug, "Starting handleClientMessage fd:{}", fd);
+                    auto ft = m_ThreadPool->submit(bind(&ServerSocket::handleClientMessage, this, fd));
                     // if (!ft.valid()) {
                     //     m_ClientSockets.erase(fd);
                     //     FD_CLR(fd, &m_Master);
@@ -179,7 +186,7 @@ void ServerSocket::handleSelectConnections() {
 void ServerSocket::handleClientMessage(int fd) {
     ostringstream  threadId;
     threadId << this_thread::get_id();
-    m_Logger.log(LogLevel::Debug, "{}:Thread id:{}",__func__,threadId.str());  
+    m_Logger.log(LogLevel::Debug, "{}:Thread id:{}",__func__, threadId.str());  
     char buffer[BUFFER_SIZE];
     memset(buffer, 0, sizeof(buffer));
     size_t bytes_received = recv(fd, buffer, sizeof(buffer) - 1, 0);
@@ -187,8 +194,9 @@ void ServerSocket::handleClientMessage(int fd) {
     {
         m_Logger.log(LogLevel::Info, "{}:Server is shuting down. Cannot read messages.",__func__); 
         CLOSESOCKET(fd);
-        FD_CLR(fd, &m_Master); // remove from master set
         m_ClientSockets.erase(fd);
+        lock_guard<mutex> lock(m_mutex);
+        FD_CLR(fd, &m_Master); // remove from master set
         return;
     }
     
@@ -201,17 +209,18 @@ void ServerSocket::handleClientMessage(int fd) {
             m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
         }
         CLOSESOCKET(fd); 
-        FD_CLR(fd, &m_Master); // remove from master set
         m_ClientSockets.erase(fd);
+        lock_guard<mutex> lock(m_mutex);
+        FD_CLR(fd, &m_Master); // remove from master set
         return;
     }
     
+    lock_guard<mutex> lock(m_mutex);
     for(int j = 0; j < m_Master.fd_count; j++) {
         // send to everyone!
         if (FD_ISSET(m_Master.fd_array[j], &m_Master)) {
             // except the listener and ourselves
             if (m_Master.fd_array[j] != m_sockfdListener && m_Master.fd_array[j] != fd) {
-                lock_guard<mutex> lock(m_mutex);
                 auto result = m_BroadcastMessageQueue.emplace(make_pair(m_Master.fd_array[j], string(buffer)));
                 if (!result.first) {
                     m_Logger.log(LogLevel::Error, "{}:Failed to add message to broadcast queue.",__func__);
