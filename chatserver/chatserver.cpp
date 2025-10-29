@@ -109,6 +109,171 @@ ServerSocket::ServerSocket(Logger& logger, const string& serverName, const strin
     threadBroadcastMessage();
 }
 
+string ServerSocket::getLastErrorDescription() {
+    string result;
+    int errorCode = ERROR_CODE;
+#ifdef _WIN32
+    char *errorMsg = NULL;
+    FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        errorCode,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPSTR)&errorMsg,
+        0,
+        NULL
+    );
+    if (!errorMsg) {
+        return format("WSA Error {}: <unknown>", errorCode);;
+    }
+    result = format("Error {}: {}", ERROR_CODE, errorMsg);
+    LocalFree(errorMsg);
+#else
+    result = strerror(ERROR_CODE);
+#endif
+    return result;
+}
+struct ClientContext {
+    SOCKET socket;
+    OVERLAPPED overlapped;
+    WSABUF wsabuf;
+    char buffer[BUFFER_SIZE];
+};
+void WorkerThread(HANDLE iocp) {
+    while (true) {
+        DWORD bytesTransferred;
+        ClientContext* clientContext;
+        clientContext->wsabuf.buf = clientContext->buffer;
+        clientContext->wsabuf.len = BUFFER_SIZE;
+        ULONG_PTR key;
+
+        // Wait for an I/O operation to complete
+        if (GetQueuedCompletionStatus(iocp, &bytesTransferred, &key, (LPOVERLAPPED*)&clientContext, INFINITE)) {
+            if (bytesTransferred > 0) {
+                // Process the received data
+                cout << "Received: " << string(clientContext->wsabuf.buf, bytesTransferred) << std::endl;
+
+                // Echo the data back to the client
+                WSASend(clientContext->socket, &clientContext->wsabuf, 1, nullptr, 0, &clientContext->overlapped, nullptr);
+            } else {
+                // Handle client disconnection
+                closesocket(clientContext->socket);
+                delete clientContext;
+            }
+        }
+    }
+}
+
+void ServerSocket::AcceptConnections(SOCKET listenSocket, HANDLE iocp) {
+    
+    while (m_IsConnected.load()) {
+        SOCKET clientSocket = accept(listenSocket, nullptr, nullptr);
+        if (clientSocket == INVALID_SOCKET) {
+            m_Logger.log(LogLevel::Error, "{}:Accept failed:{}", __func__, ERROR_CODE);
+            m_Logger.log(LogLevel::Error, "{}:{}", __func__ , getLastErrorDescription());
+            continue;
+        }
+
+        // Create a new client context
+        ClientContext* clientContext = new ClientContext();
+        clientContext->wsabuf.buf = clientContext->buffer;
+        clientContext->wsabuf.len = BUFFER_SIZE;
+        clientContext->socket = clientSocket;
+
+        m_Logger.log(LogLevel::Debug, "{}:Client connected successfully.",__func__);
+        auto result = m_ClientSockets.emplace(clientSocket);
+        if (!result.second)
+        {
+            m_Logger.log(LogLevel::Error, "{}:Failed to add client socket to the set.",__func__);
+            CLOSESOCKET(clientSocket);
+            continue;
+        }   
+        getClientIP(clientSocket);
+
+        // Associate the socket with the IOCP
+        if (CreateIoCompletionPort((HANDLE)clientSocket, iocp, (ULONG_PTR)clientContext, 0) == NULL) {
+            m_Logger.log(LogLevel::Error, "{}:CreateIoCompletionPort failed:{}", __func__, ERROR_CODE);
+            m_Logger.log(LogLevel::Error, "{}:{}", __func__ , getLastErrorDescription());
+            CLOSESOCKET(clientSocket);
+            m_ClientSockets.erase(clientSocket);
+            delete clientContext;
+            continue;
+        }
+
+        // Post an initial receive operation
+        DWORD flags = 0;
+        auto ret = WSARecv(clientSocket, &clientContext->wsabuf, BUFFER_SIZE, nullptr, &flags, &clientContext->overlapped, nullptr);
+        if (ret != 0 && ERROR_CODE != WSA_IO_PENDING) {
+            m_Logger.log(LogLevel::Error, "{}:WSARecv failed:{}", __func__, ERROR_CODE);
+            m_Logger.log(LogLevel::Error, "{}:{}", __func__ , getLastErrorDescription());
+            closesocket(clientSocket);
+            m_ClientSockets.erase(clientSocket);
+            delete clientContext;
+            continue;
+        }
+    }
+}
+
+#ifdef _WIN32
+void ServerSocket::handleSelectConnectionsWindows(){
+    m_Logger.log(LogLevel::Debug, "{}:Using IOCP for handling connections.",__func__);
+    typedef struct {
+        OVERLAPPED overlapped;
+        WSABUF buffer;
+        char data[1024];
+        SOCKET socket;
+    } PER_IO_DATA;
+    DWORD bytesTransferred;
+    ULONG_PTR completionKey;
+    LPOVERLAPPED lpOverlapped;
+    DWORD flags = 0;
+
+    HANDLE iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
+    CreateIoCompletionPort((HANDLE)m_sockfdListener, iocp, (ULONG_PTR)m_sockfdListener, 0);
+    m_Logger.log(LogLevel::Debug, "{}:Server is ready to accept connections.",__func__);
+    vector<jthread> workerThreads;
+    for (int i = 0; i < thread::hardware_concurrency(); ++i) {
+        workerThreads.emplace_back(WorkerThread, iocp);
+    }
+    setIsConnected(true);
+    AcceptConnections(m_sockfdListener, iocp);
+    
+    // while (m_IsConnected.load()) {
+    //     SOCKET clientSocket = accept(m_sockfdListener, NULL, NULL);
+    //     CreateIoCompletionPort((HANDLE)clientSocket, iocp, (ULONG_PTR)clientSocket, 0);
+
+    //     PER_IO_DATA* ioData = (PER_IO_DATA*)malloc(sizeof(PER_IO_DATA));
+    //     ZeroMemory(&ioData->overlapped, sizeof(OVERLAPPED));
+    //     ioData->buffer.buf = ioData->data;
+    //     ioData->buffer.len = sizeof(ioData->data);
+    //     ioData->socket = clientSocket;
+
+    //     auto ret = WSARecv(clientSocket, &ioData->buffer, 1, NULL, &flags, &ioData->overlapped, NULL);      
+    //     if (ret =! WN_SUCCESS && ERROR_CODE != WSA_IO_PENDING) {
+    //         m_Logger.log(LogLevel::Error, "{}:WSARecv failed!",__func__);
+    //         m_Logger.log(LogLevel::Error, "{}:Error Code:{}:{}", __func__ , ERROR_CODE, getLastErrorDescription());
+    //         CLOSESOCKET(clientSocket);
+    //         free(ioData);
+    //         continue;
+    //     }   
+        
+    //     BOOL result = GetQueuedCompletionStatus(iocp, &bytesTransferred, &completionKey, &lpOverlapped, INFINITE);
+    //     if (result && lpOverlapped != NULL) {
+    //         PER_IO_DATA* completedData = (PER_IO_DATA*)lpOverlapped;
+    //         completedData->data[bytesTransferred] = '\0'; // Null-terminate the received data   
+    //         m_Logger.log(LogLevel::Debug, "Received {} bytes: {}", bytesTransferred, completedData->data);
+
+    //         // Echo back the data
+    //         send(completedData->socket, completedData->data, bytesTransferred, 0);
+    //         free(completedData);
+    //     }
+
+    //     //m_Logger.log(LogLevel::Debug, "Starting handleClientMessage fd:{}", clientSocket);
+    //     //auto ft = m_ThreadPool->submit(bind(&ServerSocket::handleClientMessage, this, clientSocket));
+    // }
+    CloseHandle(iocp);
+}
+#else
 void ServerSocket::handleSelectConnections() {
     struct sockaddr_storage remoteAddr; // client address
     fd_set readFds; // temp file descriptor list for select()
@@ -118,7 +283,7 @@ void ServerSocket::handleSelectConnections() {
     FD_SET(m_sockfdListener, &m_Master);
     fdMax = m_sockfdListener; 
     m_Logger.log(LogLevel::Debug, "{}:m_sockfdListener:{}",__func__, m_sockfdListener);  
-
+    
     setIsConnected(true);
     
     while(getIsConnected()) {
@@ -126,13 +291,17 @@ void ServerSocket::handleSelectConnections() {
             lock_guard<mutex> lock(m_mutex);
             readFds = m_Master; // copy it
         }
-        if (select(fdMax+1, &readFds, nullptr, nullptr, nullptr) == -1) {
+        struct timeval tv;
+        tv.tv_sec = 2;
+        tv.tv_usec = 500000; // 500 milliseconds
+        
+        if (select(fdMax+1, &readFds, nullptr, nullptr, &tv) == -1) {
             m_Logger.log(LogLevel::Error, "{}:Select failed!",__func__);
             setIsConnected(false);
             m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__ , ERROR_CODE);
             exit(EXIT_FAILURE);
         }
-        m_Logger.log(LogLevel::Debug, "{}:Select returned, processing sockets...",__func__);  
+        //m_Logger.log(LogLevel::Debug, "{}:Select returned, processing sockets...",__func__);  
         for(int fd = 0; fd <= fdMax; fd++) {
             if (FD_ISSET(fd, &readFds)) { 
                 if (fd == m_sockfdListener) { // handle new connections
@@ -167,21 +336,25 @@ void ServerSocket::handleSelectConnections() {
                     getClientIP(clientSocket);
                 } else {
                     // auto ft = m_ThreadPool->submit([this, fd]() {
-                    //     this->handleClientMessage(fd);
-                    // });
-                    m_Logger.log(LogLevel::Debug, "Starting handleClientMessage fd:{}", fd);
-                    auto ft = m_ThreadPool->submit(bind(&ServerSocket::handleClientMessage, this, fd));
-                    // if (!ft.valid()) {
-                    //     m_ClientSockets.erase(fd);
-                    //     FD_CLR(fd, &m_Master);
-                    //     m_Logger.log(LogLevel::Error, "{}:Failed to submit task to thread pool.",__func__);
-                    // }
+                        //     this->handleClientMessage(fd);
+                        // });
+                        m_Logger.log(LogLevel::Debug, "Starting handleClientMessage fd:{}", fd);
+                        auto ft = m_ThreadPool->submit(bind(&ServerSocket::handleClientMessage, this, fd));
+                        // if (!ft.valid()) {
+                            //     m_ClientSockets.erase(fd);
+                            //     FD_CLR(fd, &m_Master);
+                            //     m_Logger.log(LogLevel::Error, "{}:Failed to submit task to thread pool.",__func__);
+                            // }
+                        }
+                    }
+                    else {
+                        m_Logger.log(LogLevel::Debug, "{}:Server still runnig");
+                    }
                 }
             }
         }
-    }
-}
-
+#endif
+        
 // handle data from a client
 void ServerSocket::handleClientMessage(int fd) {
     ostringstream  threadId;
@@ -216,19 +389,29 @@ void ServerSocket::handleClientMessage(int fd) {
     }
     
     lock_guard<mutex> lock(m_mutex);
-    for(int j = 0; j < m_Master.fd_count; j++) {
-        // send to everyone!
-        if (FD_ISSET(m_Master.fd_array[j], &m_Master)) {
-            // except the listener and ourselves
-            if (m_Master.fd_array[j] != m_sockfdListener && m_Master.fd_array[j] != fd) {
-                auto result = m_BroadcastMessageQueue.emplace(make_pair(m_Master.fd_array[j], string(buffer)));
-                if (!result.first) {
-                    m_Logger.log(LogLevel::Error, "{}:Failed to add message to broadcast queue.",__func__);
-                    continue;
-                }
+    for (auto &cfd : m_ClientSockets) {
+        if (cfd != fd && cfd != m_sockfdListener){
+            auto result = m_BroadcastMessageQueue.emplace(make_pair(cfd, string(buffer)));
+            if (!result.first) {
+                m_Logger.log(LogLevel::Error, "{}:Failed to add message to broadcast queue.",__func__);
+                continue;
             }
         }
     }
+
+    // for(int j = 0; j < m_Master.fd_count; j++) {
+    //     // send to everyone!
+    //     if (FD_ISSET(m_Master.fd_array[j], &m_Master)) {
+    //         // except the listener and ourselves
+    //         if (m_Master.fd_array[j] != m_sockfdListener && m_Master.fd_array[j] != fd) {
+    //             auto result = m_BroadcastMessageQueue.emplace(make_pair(m_Master.fd_array[j], string(buffer)));
+    //             if (!result.first) {
+    //                 m_Logger.log(LogLevel::Error, "{}:Failed to add message to broadcast queue.",__func__);
+    //                 continue;
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 bool ServerSocket::getIsConnected() const

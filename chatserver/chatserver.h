@@ -85,7 +85,11 @@ string const FILE_MIME_TYPES[] = {
 
 class ServerSocket{
     private:
+    #if defined(_WIN32)
+        SOCKET m_sockfdListener;
+    #else
         int m_sockfdListener;
+    #endif
         string m_ServerName;
         string m_PortNumber;
         atomic<bool> m_IsConnected{false};
@@ -139,8 +143,16 @@ class ServerSocket{
         // setIsConnected - sets the connection status
         void setIsConnected(bool isConnected);
         
+        // AcceptConnections - accepts new client connections (Windows IOCP version)
+        // listenSocket: the listening server socket
+        // iocp: the IO completion port handle
+        void AcceptConnections(SOCKET listenSocket, HANDLE iocp);
+        
         // handleSelectConnections - handles multiple client connections using select()
         void handleSelectConnections();
+        
+        // handleSelectConnectionsWindows - handles multiple client connections using iocp on Windows
+        void handleSelectConnectionsWindows();
 
         // closeSocket - closes the client socket 
         // sd: the socket descriptor 
@@ -155,6 +167,9 @@ class ServerSocket{
         // getClientSockets - returns the set of currently connected client sockets 
         // Returns an unordered_set of client socket descriptors
         unordered_set<int> getClientSockets() const;
+
+        // getLastErrorDescription - retrieves a description for the last error code
+        string getLastErrorDescription();
 
         // Destructor
         ~ServerSocket();
