@@ -10,7 +10,7 @@
 #include "logger.h"
 
 
-Logger::Logger(const string_view fileName, int _maxLogSize) : maxLogSize(_maxLogSize)
+Logger::Logger(const string& fileName, size_t maxLogSize) : m_MaxLogSize(maxLogSize)
 {
 	static_assert(is_constructible_v<Logger, string, int>, "Logger must be constructible with a string.");
 	static_assert(!is_copy_constructible_v<Logger>, "Logger should not be copy constructible");
@@ -40,7 +40,7 @@ bool Logger::closeFile() {
 	return false;
 }
 
-size_t Logger::size() {
+size_t Logger::logSize() {
 	if (isOpen()) {
 		return filesystem::file_size(m_path);
 	}
@@ -85,7 +85,7 @@ bool Logger::renameLogFile() {
 	string extension = m_path.extension().string();
 	m_path.replace_extension(""); // Remove the extension for renaming
 	string newFileName = m_path.string() + "_" + oss.str() + extension;
-	
+	lock_guard<mutex> Lock(m_mutex);
 	if (exists(newFileName)) {
 		remove(newFileName);
 	}
@@ -133,7 +133,6 @@ void Logger::stopProcessing() {
 }
 
 void Logger::log(const LogLevel &logLevel, const string& message) {
-    lock_guard<mutex> lock(m_mutex);
     auto now = chrono::system_clock::now();
     auto time = chrono::system_clock::to_time_t(now);
     auto ms = chrono::duration_cast<chrono::milliseconds>(now.time_since_epoch()) % 1000;
@@ -147,6 +146,7 @@ void Logger::log(const LogLevel &logLevel, const string& message) {
         << "[" << toString(logLevel) << "] " << message;
 	
     if (!doneFlag.load()) {
+		lock_guard<mutex> lock(m_mutex);
         m_queue.emplace(oss.str());
     }
     else {
@@ -217,7 +217,7 @@ void Logger::processingMessages() {
 	cout << "Starting Logger processing messages" << "\n";
 	 m_ThreadProcessMessages = jthread([this](stop_token sToken) {
 		while (!sToken.stop_requested()) {
-			if (size() > maxLogSize) {
+			if (logSize() > m_MaxLogSize) {
 				renameLogFile(); // Rename the log file if it exceeds the size limit
 				if (!openFile()) { // Reopen the log file after renaming
 					logError("Failed to reopen log file after renaming", errno);
@@ -225,7 +225,7 @@ void Logger::processingMessages() {
 					return; // Exit if we cannot reopen the file
 				}
 			}
-			unique_lock<mutex> lc(m_mutex);
+			unique_lock<mutex> lock(m_mutex);
 			if (!m_queue.empty()) {
 				if (writeLog(m_queue.front().c_str())) {
 					m_queue.pop();
@@ -233,10 +233,10 @@ void Logger::processingMessages() {
 				else {
 					logError("Failed to write log message", errno);
 				}
-				lc.unlock();
+				lock.unlock();
 			}
 			else {
-				lc.unlock();
+				lock.unlock();
 				this_thread::sleep_for(chrono::milliseconds(100)); // Sleep to avoid busy waiting
 			}
 		}

@@ -10,11 +10,7 @@ StartServer::StartServer(const string& serverName, const string& portNumber)
 
 int StartServer::Run(){
     if (m_ServerSocket.getIsConnected()) {
-        #ifdef _WIN32
-            m_ServerSocket.handleSelectConnectionsWindows();    
-        #else
-            m_ServerSocket.handleSelectConnections();
-        #endif  
+        m_ServerSocket.handleSelectConnections();    
         m_ServerSocket.closeAllClientSockets();
         m_Logger.log(LogLevel::Info, "{}:{}", __func__ , "Server is shutting down...");
         return EXIT_SUCCESS;

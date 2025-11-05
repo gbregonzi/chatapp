@@ -21,6 +21,7 @@
 #include "../utils/logger.h"
 
 using namespace std;
+constexpr int BUFFER_SIZE{1024};
 
 enum class messageType { 
     HTTP_HEADER, 
@@ -54,7 +55,7 @@ string const FILE_EXTENSIOS[] = {
 
 string const FILE_MIME_TYPES[] = {
     "Content-Type: image/jpeg\r\n",
-    "Content-Type: image/jpeg\r\n",
+   "Content-Type: image/jpeg\r\n",
     "Content-Type: image/png\r\n",
     "Content-Type: image/gif\r\n",
     "Content-Type: text/css\r\n",
@@ -93,18 +94,16 @@ class ServerSocket{
         string m_ServerName;
         string m_PortNumber;
         atomic<bool> m_IsConnected{false};
-        mutex m_mutex;
+        mutex m_Mutex;
         //condition_variable_any m_condVar; // For signaling new messages
         queue<pair<int, string>> m_BroadcastMessageQueue;
         //queue<string> m_SendMessageQueue;
         unordered_set<int> m_ClientSockets;
-        //stop_source m_Source;
-        //stop_token m_sToken;
         jthread m_BroadcastThread;
         Logger& m_Logger;
         fd_set m_Master; // master file descriptor list
-        vector<thread> m_Threads;
-        unique_ptr<threadPool> m_ThreadPool;
+        vector<jthread> m_Threads;
+        HANDLE m_IOCP;
 
         // sendMessage - sends a specific message to the connected client
         // sd: the socket descriptor of the connected client
@@ -118,6 +117,14 @@ class ServerSocket{
         // handleClient - handles communication with a specific client
         // fd: the socket descriptor of the connected client
         void handleClientMessage(int fd);
+
+        // WorkerThread - worker thread function for handling IOCP events
+        // iocp: the IO completion port handle
+        void WorkerThread(HANDLE iocp);
+
+        // AssociateSocket - 
+        void AssociateSocket(SOCKET clientSocket);
+
     public:
         // Constructor
         // logger: reference to Logger instance for logging
@@ -136,24 +143,16 @@ class ServerSocket{
 
         // getIsConnected - returns the connection status
         bool getIsConnected() const;
-
-        // getMutex - returns the mutex for external locking if needed
-        //mutex& getMutex();
         
         // setIsConnected - sets the connection status
         void setIsConnected(bool isConnected);
         
         // AcceptConnections - accepts new client connections (Windows IOCP version)
-        // listenSocket: the listening server socket
-        // iocp: the IO completion port handle
-        void AcceptConnections(SOCKET listenSocket, HANDLE iocp);
+        void AcceptConnections();
         
         // handleSelectConnections - handles multiple client connections using select()
         void handleSelectConnections();
         
-        // handleSelectConnectionsWindows - handles multiple client connections using iocp on Windows
-        void handleSelectConnectionsWindows();
-
         // closeSocket - closes the client socket 
         // sd: the socket descriptor 
         void closeSocket(int sd);

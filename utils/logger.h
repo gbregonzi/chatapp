@@ -10,14 +10,14 @@ using namespace std;
 using namespace std::filesystem;
 
 enum class LogLevel { Debug, Info, Warning, Error };
-constexpr size_t MAX_LOG_FILE_SIZE = 1000000; // 1 MB
+constexpr size_t MAX_LOG_FILE_SIZE = 10000000; // 10 MB
 
 class Logger {
 private:
 	ofstream os{};
 	path m_path{};
 	mutex m_mutex;
-	int maxLogSize;
+	int m_MaxLogSize;
 	atomic<bool> doneFlag{ false };
 	queue<string> m_queue{};
 	jthread m_ThreadProcessMessages;
@@ -58,7 +58,7 @@ public:
 	// Constructor
 	// fileName - Initializes the logger with a file name
 	// maxLogSize - The maximum size of the log file before it is renamed
-	Logger(const string_view fileName, int maxLogSize);
+	Logger(const string& fileName, size_t maxLogSize);
 	
 	// Destructor - Cleans up the logger
 	~Logger();
@@ -81,8 +81,8 @@ public:
 	// processingMessages - Starts a thread to process log messages
 	void processingMessages();
 
-	// size - Returns the size of the log file
-	size_t size();
+	// logSize - Returns the size of the log file
+	size_t logSize();
 
 	// isOpen - Checks if the log file is open
 	bool isOpen();
@@ -103,8 +103,8 @@ public:
 
 // LoggerFactory - Singleton factory for Logger instances	
 struct LoggerFactory {
-	static Logger& getInstance(int maxLogSize = MAX_LOG_FILE_SIZE) {
-		static Logger instance(string_view("chatServer.log"), maxLogSize); // 1 MB max size
+	static Logger& getInstance(size_t maxLogSize = MAX_LOG_FILE_SIZE) {
+		static Logger instance(string("chatServer.log"), maxLogSize); // 1 MB max size
 		return instance;
 	}
 };
