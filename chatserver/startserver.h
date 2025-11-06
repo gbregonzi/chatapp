@@ -3,7 +3,6 @@
 #include <thread>
 #include <mutex>
 #include "chatserver.h"
-#include "../utils/outputStream.h"
 #include "../utils/logger.h"
 
 using namespace std;

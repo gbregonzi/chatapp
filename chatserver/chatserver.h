@@ -14,10 +14,10 @@
     #include <windows.h>
 #else
     #include <netinet/in.h>
+    typedef void *HANDLE;
+    typedef unsigned long long SOCKET;
 #endif
 
-#include "../utils/outputStream.h"
-#include "../utils/threadPool.h"
 #include "../utils/logger.h"
 
 using namespace std;
@@ -86,7 +86,7 @@ string const FILE_MIME_TYPES[] = {
 
 class ServerSocket{
     private:
-    #if defined(_WIN32)
+    #ifdef _WIN32
         SOCKET m_sockfdListener;
     #else
         int m_sockfdListener;
@@ -103,8 +103,9 @@ class ServerSocket{
         Logger& m_Logger;
         fd_set m_Master; // master file descriptor list
         vector<jthread> m_Threads;
+    #ifdef _WIN32
         HANDLE m_IOCP;
-
+    #endif
         // sendMessage - sends a specific message to the connected client
         // sd: the socket descriptor of the connected client
         // message: the message to be sent
@@ -139,7 +140,7 @@ class ServerSocket{
 
         // getClientIP - Overloaded version to get IP from sockaddr_storage
         // p: pointer to addrinfo structure
-        bool getClientIP(addrinfo* p);
+        //bool getClientIP(addrinfo* p);
 
         // getIsConnected - returns the connection status
         bool getIsConnected() const;
