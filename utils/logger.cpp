@@ -5,10 +5,13 @@
 #include <sstream>
 #include <system_error>
 #include <chrono>
-#include <format>
 
 #include "logger.h"
+#include <stop_token>
 
+#ifndef _WIN32
+#define localtime_s(_Tm, _Time) localtime_r((_Time), (_Tm))
+#endif
 
 Logger::Logger(const string& fileName, size_t maxLogSize) : m_MaxLogSize(maxLogSize)
 {

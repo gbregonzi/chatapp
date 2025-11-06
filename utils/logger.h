@@ -3,8 +3,10 @@
 #include <fstream>
 #include <queue>
 #include <mutex>
-#include <format>
 #include <type_traits>
+#include <atomic>
+#include <thread>
+#include <fmt/core.h>
 
 using namespace std;
 using namespace std::filesystem;
@@ -73,8 +75,8 @@ public:
 	// fmt - The format string
 	// args - The arguments to be formatted into the string
     template<typename ...Args>
-    void log(const LogLevel& logLevel, const string& fmt, Args&& ...args){
-		string formatted = vformat(fmt, make_format_args(args...));
+    void log(const LogLevel& logLevel, const string& _fmt, Args&& ...args){
+		string formatted = fmt::vformat(_fmt, fmt::make_format_args(forward<Args>(args)...));
 		log(logLevel, formatted);
 	}
 
