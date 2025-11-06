@@ -24,6 +24,7 @@
 constexpr int MAX_PORT_TRIES{10};
 constexpr int MAX_QUEUE_CONNECTINON{10};
 constexpr int MAX_THREAD{4};
+constexpr int BUFFER_SIZE{1024};
 
 using namespace std;
 
@@ -250,9 +251,24 @@ void ServerSocket::handleSelectConnections(){
     CloseHandle(m_IOCP);
 #else
     int epfd = epoll_create1(0);
-    epoll_event ev{.events = EPOLLIN, .data = {.fd = server_fd}};
-    epoll_ctl(epfd, EPOLL_CTL_ADD, server_fd, &ev);
-    
+    epoll_event ev{.events = EPOLLIN, .data = {.fd = m_sockfdListener}};
+    epoll_ctl(epfd, EPOLL_CTL_ADD, m_sockfdListener, &ev);
+    while(getIsConnected()){
+        epoll_event events[MAX_QUEUE_CONNECTINON];
+        int nfds = epoll_wait(epfd, events, MAX_QUEUE_CONNECTINON, -1);
+        for (int i = 0; i < nfds; ++i) {
+            if (events[i].data.fd == m_sockfdListener) {
+                int client_fd = accept(m_sockfdListener, nullptr, nullptr);
+                set_nonblocking(client_fd);
+                handle_client(client_fd, epfd);
+            } else {
+                auto h = coroutine_handle<>::from_address(events[i].data.ptr);
+                epoll_ctl(epfd, EPOLL_CTL_DEL, events[i].data.fd, nullptr);
+                h.resume();
+            }
+        }
+
+    }
     // struct sockaddr_storage remoteAddr; // client address
     // fd_set readFds; // temp file descriptor list for select()
     // int fdMax; // maximum file descriptor number

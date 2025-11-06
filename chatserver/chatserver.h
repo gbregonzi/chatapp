@@ -21,7 +21,6 @@
 #include "../utils/logger.h"
 
 using namespace std;
-constexpr int BUFFER_SIZE{1024};
 
 enum class messageType { 
     HTTP_HEADER, 
