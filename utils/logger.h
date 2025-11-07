@@ -6,7 +6,6 @@
 #include <type_traits>
 #include <atomic>
 #include <thread>
-#include <fmt/core.h>
 
 using namespace std;
 using namespace std::filesystem;
@@ -74,12 +73,17 @@ public:
 	// logLevel - The log level of the message
 	// fmt - The format string
 	// args - The arguments to be formatted into the string
-    template<typename ...Args>
-    void log(const LogLevel& logLevel, const string& _fmt, Args&& ...args){
-		string formatted = fmt::vformat(_fmt, fmt::make_format_args(forward<Args>(args)...));
-		log(logLevel, formatted);
-	}
+	template<typename ...Args>
+	void log(const LogLevel& logLevel, const std::string& fmt, Args&& ...args) {
+		ostringstream oss;
+		
+		// Expand the arguments and append to the stream
+		((oss << " " << args), ...); 
 
+		string formated =  oss.str();
+		log(logLevel, formated);
+	}	
+	
 	// processingMessages - Starts a thread to process log messages
 	void processingMessages();
 

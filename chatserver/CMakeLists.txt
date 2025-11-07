@@ -12,13 +12,11 @@ file(GLOB SOURCES "*.cpp" "*.h")
 
 
 add_library(startServer ${SOURCES})
-include_directories(../utils)
 
 add_executable(chatServer ${SOURCES})
 
-#set_property(TARGET chatServer PROPERTY CMAKE_CXX_STANDARD 20)
+set_property(TARGET chatServer PROPERTY CMAKE_CXX_STANDARD 20)
 # Include headers from utils
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../utils)
 
 # Explicitly list all source files
 set(SOURCES
