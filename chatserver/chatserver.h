@@ -12,15 +12,26 @@
     #include <winsock2.h>
     #include <ws2tcpip.h>
     #include <windows.h>
+    #include "handleConnectionsWindows.h"
 #else
+    //#include "handleConnectionsLinux.h"
+    #include <arpa/inet.h>
+    #include <unistd.h>
+    #include <netdb.h>
+    #include <sys/socket.h>
+    #include <sys/types.h>
+    #include <sys/epoll.h>
     #include <netinet/in.h>
     typedef void *HANDLE;
     typedef unsigned long long SOCKET;
 #endif
+#include <string>
 
 #include "../utils/logger.h"
 
 using namespace std;
+
+constexpr int MAX_THREAD{4};
 
 enum class messageType { 
     HTTP_HEADER, 
@@ -83,7 +94,7 @@ string const FILE_MIME_TYPES[] = {
     "Content-Type: application/octet-stream\r\n",
     };
 
-class ServerSocket{
+class ServerSocket {
     private:
     #ifdef _WIN32
         SOCKET m_sockfdListener;
@@ -93,18 +104,16 @@ class ServerSocket{
         string m_ServerName;
         string m_PortNumber;
         atomic<bool> m_IsConnected{false};
-        mutex m_Mutex;
-        //condition_variable_any m_condVar; // For signaling new messages
-        queue<pair<int, string>> m_BroadcastMessageQueue;
-        //queue<string> m_SendMessageQueue;
-        unordered_set<int> m_ClientSockets;
-        jthread m_BroadcastThread;
-        Logger& m_Logger;
+        // mutex m_Mutex;
+        // queue<pair<int, string>> m_BroadcastMessageQueue;
+        // unordered_set<int> m_ClientSockets;
+        // jthread m_BroadcastThread;
+        // Logger& m_Logger;
         fd_set m_Master; // master file descriptor list
-        vector<jthread> m_Threads;
-    #ifdef _WIN32
-        HANDLE m_IOCP;
-    #endif
+        // vector<jthread> m_Threads;
+    // #ifdef _WIN32
+    //     HANDLE m_IOCP;
+    // #endif
         // sendMessage - sends a specific message to the connected client
         // sd: the socket descriptor of the connected client
         // message: the message to be sent
@@ -116,16 +125,16 @@ class ServerSocket{
 
         // handleClient - handles communication with a specific client
         // fd: the socket descriptor of the connected client
-        void handleClientMessage(int fd);
-
-        // WorkerThread - worker thread function for handling IOCP events
-        // iocp: the IO completion port handle
-        void WorkerThread(HANDLE iocp);
-
-        // AssociateSocket - 
-        void AssociateSocket(SOCKET clientSocket);
+        //void handleClientMessage(int fd);
 
     public:
+        mutex m_Mutex;
+        queue<pair<int, string>> m_BroadcastMessageQueue;
+        unordered_set<int> m_ClientSockets;
+        jthread m_BroadcastThread;
+        Logger& m_Logger;
+        vector<jthread> m_Threads;
+
         // Constructor
         // logger: reference to Logger instance for logging
         // serverName: the server hostname or IP address
@@ -147,11 +156,18 @@ class ServerSocket{
         // setIsConnected - sets the connection status
         void setIsConnected(bool isConnected);
         
+        // WorkerThread - worker thread function for handling IOCP events
+        // iocp: the IO completion port handle
+        void virtual WorkerThread(HANDLE iocp) = 0;
+
+        // AssociateSocket - 
+        void virtual AssociateSocket(SOCKET clientSocket) = 0;
+
         // AcceptConnections - accepts new client connections (Windows IOCP version)
-        void AcceptConnections();
+        void virtual AcceptConnections() = 0;
         
         // handleSelectConnections - handles multiple client connections using select()
-        void handleSelectConnections();
+        void virtual handleSelectConnections() = 0;
         
         // closeSocket - closes the client socket 
         // sd: the socket descriptor 
@@ -174,10 +190,15 @@ class ServerSocket{
         ~ServerSocket();
 };
 
-struct ServerSocketFactory{    
-    inline static ServerSocket& getInstance(Logger &logger, 
-                                            const string& serverName, const string& portNumber){
-        static ServerSocket instance(logger, serverName, portNumber);
-        return instance;
-    };   
+struct ServerSocketFactory {
+    inline static ServerSocket& getInstance(Logger &logger,
+                                            const string& serverName,
+                                            const string& portNumber) {
+#ifdef _WIN32
+        static HandleConnectionsWindows instance(logger, serverName, portNumber);
+#else
+        static HandleConnectionsLinux instance(logger, serverName, portNumber);
+#endif
+    }
+    return instance;
 };

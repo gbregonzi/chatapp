@@ -10,19 +10,19 @@ enable_testing()
 # Add all .cpp files in the current directory
 file(GLOB SOURCES "*.cpp" "*.h")
 
-
 add_library(startServer ${SOURCES})
+add_library(handleConnectionsWindows ${SOURCES})
 
 add_executable(chatServer ${SOURCES})
 
 set_property(TARGET chatServer PROPERTY CMAKE_CXX_STANDARD 20)
-# Include headers from utils
 
 # Explicitly list all source files
 set(SOURCES
     main.cpp
     chatserver.cpp
     startserver.cpp
+    handleConnectionsWindows.cpp
     ../utils/logger.cpp
 )
 
@@ -30,6 +30,7 @@ set(SOURCES
 set(HEADERS
     chatserver.h
     startserver.h
+    handleConnectionsWindows.h
     ../utils/logger.h
 )
 
