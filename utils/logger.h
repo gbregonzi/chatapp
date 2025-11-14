@@ -7,6 +7,8 @@
 #include <type_traits>
 #include <atomic>
 #include <thread>
+#include <iostream>
+
 
 using namespace std;
 using namespace std::filesystem;
@@ -118,7 +120,7 @@ public:
 
 // LoggerFactory - Singleton factory for Logger instance	
 struct LoggerFactory {
-	static Logger& getInstance(string fileName, size_t maxLogSize = MAX_LOG_FILE_SIZE) {
+	static Logger& getInstance(const string& fileName, size_t maxLogSize = MAX_LOG_FILE_SIZE) {
 		static Logger instance(fileName, maxLogSize); // 1 MB max size
 		return instance;
 	}

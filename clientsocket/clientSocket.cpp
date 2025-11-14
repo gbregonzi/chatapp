@@ -1,9 +1,9 @@
-
 #include <iostream>
 #include <string>
-#include <unistd.h>
 #include <cstring>
 #include <thread>
+#include <unistd.h>
+
 #ifdef _WIN32
     #include <winsock2.h>
     #include <ws2tcpip.h>
@@ -14,17 +14,19 @@
 
 #include "clientSocket.h"
 
-ClientSocket::ClientSocket(const string& ip, const char* portHostName) : m_ip(ip), m_PortHostName(portHostName) {
-        cout << "Class ClientSocket created for " << ip << ":" << m_PortHostName << endl;
+
+ClientSocket::ClientSocket(Logger& logger, const string& ip, const char* portHostName) : 
+        m_Logger(logger), m_ip(ip), m_PortHostName(portHostName) {
+        m_Logger.log(LogLevel::Info, "{}:Class ClientSocket created for {}:{}",__func__, ip, m_PortHostName);
 }
 
 int ClientSocket::connect()
 {
-    cout << "Connecting...\n";
+    m_Logger.log(LogLevel::Info, "{}:Connecting...", __func__);
 #ifdef _WIN32
     WSADATA d;
     if (WSAStartup(MAKEWORD(2,2), &d)) {
-        cerr << "Failed to initialize Winsock!" << endl;
+        m_Logger.log(LogLevel::Error, "{}:Failed to initialize Winsock!", __func__);
         exit(EXIT_FAILURE);
     }
 #endif
@@ -32,17 +34,17 @@ int ClientSocket::connect()
         struct addrinfo hints{}, *res = nullptr;
         int status = getaddrinfo(m_ip.c_str(), m_PortHostName, &hints, &res);
         if (status != 0) {
-            std::cerr << "getaddrinfo error: " << gai_strerror(status) << "\n";
+            m_Logger.log(LogLevel::Error, "{}:getaddrinfo error:{} ",__func__, gai_strerror(status));
             return EXIT_FAILURE;
         }
         m_sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
         if (m_sockfd < 0) {
-            std::cerr << "Socket creation failed! Erro:" << strerror(errno) << "\n";
+            m_Logger.log(LogLevel::Error, "{}:Socket creation failed! Erro:{}",__func__, strerror(errno));
             freeaddrinfo(res);
             return EXIT_FAILURE;
         }
         if (::connect(m_sockfd, res->ai_addr, res->ai_addrlen) < 0) {
-            cerr << "Connection failed! Erro:" << strerror(errno) << "\n";
+            m_Logger.log(LogLevel::Error, "{}:Connection failed! Erro:{}",__func__, strerror(errno));
             freeaddrinfo(res);
             return EXIT_FAILURE;
         }
@@ -56,7 +58,7 @@ int ClientSocket::connect()
         inet_pton(AF_INET, m_ip.c_str(), &server_addr.sin_addr);
         if (::connect(m_sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
         {
-            cerr << "Connection failed! Erro:" << strerror(errno) << "\n";
+            m_Logger.log(LogLevel::Error,"{}:Connection failed! Erro:{}",__func__, strerror(errno));
             return -1;
         }
     }
@@ -70,23 +72,23 @@ size_t ClientSocket::readMessage(string &message){
     size_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
     if (bytes_received == ULLONG_MAX || bytes_received == 0)
     {
-        cout << "Server closed the connection." << endl;
+        m_Logger.log(LogLevel::Info, "{}:Server closed the connection.",__func__);
     }
     else if (bytes_received > 0)
     {
         buffer[bytes_received] = '\0'; // Null-terminate the received data
-        cout << "Message size: " << bytes_received << endl;
-        cout << "Received from server: " << buffer << endl << "\n";
+        m_Logger.log(LogLevel::Debug, "{}:Message size:{}",__func__, bytes_received);
+        m_Logger.log(LogLevel::Debug, "{}:Received from server:{}",__func__, buffer);
         message = string(buffer);
         return bytes_received;
     }
     else if (strcmp(buffer, "quit") == 0)
     {
-        cout << "Quit command received, closing connection." << "\n";
+        m_Logger.log(LogLevel::Debug, "{}:Quit command received, closing connection.",__func__);
     }
     else
     {
-        cerr << "Error receiving data from server." << endl;
+        m_Logger.log(LogLevel::Error, "{}:Error receiving data from server.",__func__);
     }
     return -1; // Indicate error or connection closed
 }
@@ -96,7 +98,7 @@ size_t ClientSocket::sendMessage(const string& message)
     size_t bytes_sent = send(m_sockfd, message.c_str(), message.size(), 0);
     if (bytes_sent < 0)
     {
-        cerr << "Error sending data to server." << endl;
+        m_Logger.log(LogLevel::Error,"{}:Error sending data to server.",__func__);
         return -1;
     }
     return bytes_sent;
@@ -104,7 +106,7 @@ size_t ClientSocket::sendMessage(const string& message)
 
 void ClientSocket::SocketClosed()
 {
-    cout << "Disconnecting from " << m_ip << ":" << m_PortHostName << "..." << endl;
+    m_Logger.log(LogLevel::Info, "{}:Disconnecting from:{}:{}...",__func__, m_ip, m_PortHostName);
     close(m_sockfd);
 }
 ClientSocket::~ClientSocket()
@@ -112,12 +114,11 @@ ClientSocket::~ClientSocket()
 #ifdef _WIN32
     WSACleanup();
 #endif
-    cout << "ClientSocket for " << m_ip << ":" << m_PortHostName << " destroyed." << endl;
+    m_Logger.log(LogLevel::Info,"{}:ClientSocket for:{}:{} destroyed.",__func__, m_ip, m_PortHostName);
 }
 
 void ClientSocket::LogErrorMessage(int errorCode)
 {
-    cout << "Error code: " << errorCode << endl;
-    cout << "Error description: " << strerror(errorCode) << endl
-         << endl;
+    m_Logger.log(LogLevel::Error, "{}:Error code:{}",__func__, errorCode);
+    m_Logger.log(LogLevel::Error, "{}:Error description:{}",__func__, strerror(errorCode));
 }

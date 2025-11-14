@@ -2,13 +2,14 @@
 
 #include <iostream>
 #include <string>
-#include <unistd.h>
+//#include <unistd.h>
 #include <atomic>
 #ifdef _WIN32
     #include <winsock2.h>
 #else
     #include <netinet/in.h>
 #endif
+#include "../utils/logger.h"
 
 using namespace std;
 
@@ -17,10 +18,11 @@ private:
     string m_ip;
     const char* m_PortHostName;
     int m_sockfd;    
-    atomic<bool> m_chatActive{false}; // Flag to control chat activity    
+    atomic<bool> m_chatActive{false}; // Flag to control chat activity
+    Logger& m_Logger;    
 public:
     // Constructor
-    ClientSocket(const string& ip, const char* m_portHostName);
+    ClientSocket(Logger& logger, const string& ip, const char* m_portHostName);
     
     //connect - establish connection to server
     int connect();
@@ -53,4 +55,13 @@ public:
     // errorCode: the error code to be printed
     void LogErrorMessage(int errorCode);
 
+};
+
+// LoggerFactory - Singleton factory for ClientSocket instance
+struct ClientSocketFactory{
+    static ClientSocket& getInstance(const string& ip, const char* portHostName, const string& logFileName){
+        static Logger& logger = LoggerFactory::getInstance(logFileName);
+        static ClientSocket instance(logger, ip, portHostName);
+        return instance;
+    }
 };

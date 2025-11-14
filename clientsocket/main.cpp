@@ -27,8 +27,7 @@ void sendMessageThread(ClientSocket& clientSocket, atomic<bool>& chatActive)
 
 void startSendMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
 {
-    thread sendThread(sendMessageThread, ref(clientcocket), ref(chatActive));
-    sendThread.detach(); // Detach the thread to run independently
+    jthread sendThread(sendMessageThread, ref(clientcocket), ref(chatActive));
 }
 
 void readMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
@@ -39,31 +38,39 @@ void readMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
         ssize_t bytesRead = clientcocket.readMessage(message); 
         if (bytesRead == FAILURE || message == "quit")
         {
+            chatActive.store(false);
             break;
         }
     }
-    chatActive.store(false);
+    
     clientcocket.SocketClosed();
 }
 
 void startReadMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
 {
-    thread sendThread(readMessageThread, ref(clientcocket), ref(chatActive));
-    sendThread.detach(); // Detach the thread to run independently
+    jthread sendThread(readMessageThread, ref(clientcocket), ref(chatActive));
 }
 
 int main (int argc, char *argv[]) {
     atomic<bool> chatActive{true};
-
+    string logFileName;
     if (argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " <server:ip> <server_port>" << std::endl;
+        cerr << "Usage: " << argv[0] << " <server:ip> <server_port> <log_file_name>" << std::endl;
         return 1;
     }
-
+    
+    if (argc < 4){
+        cout << "The file name wasn't provide, Using default \"clientSocket.log\"" << "\n";
+        logFileName = "clientSocket.log";
+    }
+    else {
+            logFileName = string(argv[3]);
+    }
+    
     string server_ip = argv[1];
     const char *portHostName = argv[2];
     cout << "Server IP: " << server_ip << ", Port: " << portHostName << endl; 
-    ClientSocket client(server_ip, portHostName);
+    ClientSocket& client = ClientSocketFactory::getInstance(server_ip, portHostName, logFileName);
     if (client.connect() == 0) {
         cout << "Connected to server successfully!" << endl;
         startSendMessageThread(client, chatActive);

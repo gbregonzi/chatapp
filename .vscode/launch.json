@@ -33,7 +33,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build-debug/clientsocket/clientsocket.exe",
-      "args": ["desktop-gilmar", "8080"],
+      "args": ["desktop-gilmar", "8080", "clientSocket.log"],
       "cwd": "${workspaceFolder}/build-debug/clientsocket",
       "MIMode": "gdb",
       "setupCommands": [

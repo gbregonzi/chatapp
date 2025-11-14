@@ -1,17 +1,16 @@
+//#include <sstream>
 #include <string>	
-#include <thread>
-#include <fstream>
-#include <iostream>
-#include <sstream>
 #include <system_error>
 #include <chrono>
+#include <cstring>  // for strerror
+#include <cerrno>   // for errno
 
 #include "logger.h"
 #include <stop_token>
 
-// #ifndef _WIN32
-// #define localtime_s(_Tm, _Time) localtime_r((_Time), (_Tm))
-// #endif
+#ifndef _WIN32
+	#define localtime_s(_Tm, _Time) localtime_r((_Time), (_Tm))
+#endif
 
 Logger::Logger(const string& fileName, size_t maxLogSize) : m_MaxLogSize(maxLogSize)
 {
@@ -20,7 +19,10 @@ Logger::Logger(const string& fileName, size_t maxLogSize) : m_MaxLogSize(maxLogS
 	static_assert(!is_copy_assignable_v<Logger>, "Logger should not be copy assignable");
 	static_assert(!is_move_assignable_v<Logger>, "Logger should not be move assignable");
 	m_path = current_path().string() + R"(\Log\)" + fileName.data();
-	renameLogFile();
+	if (!renameLogFile()){
+		return;
+	}
+
 	if (openFile()) {
 		processingMessages(); // Start the processing thread
 	}
@@ -88,17 +90,26 @@ bool Logger::renameLogFile() {
 	string extension = m_path.extension().string();
 	m_path.replace_extension(""); // Remove the extension for renaming
 	string newFileName = m_path.string() + "_" + oss.str() + extension;
-	lock_guard Lock(m_mutex);
-	if (exists(newFileName)) {
-		remove(newFileName);
+	try{
+
+		lock_guard Lock(m_mutex);
+		if (exists(newFileName)) {
+			remove(newFileName);
+		}
+		m_path += extension; // Restore the original path with extension
+		rename(m_path, newFileName);
+		if (!exists(newFileName)) {
+			cout << "Failed to rename log file to: " << newFileName << "\n";
+		}
+		else {
+			cout << "Log file renamed to: " << newFileName << "\n";
+		}
 	}
-	m_path += extension; // Restore the original path with extension
-	rename(m_path, newFileName);
-	if (!exists(newFileName)) {
-		cout << "Failed to rename log file to: " << newFileName << "\n";
-	}
-	else {
-		cout << "Log file renamed to: " << newFileName << "\n";
+	catch(const exception &ex){
+		cout << "Failed to rename log file: " << m_path << "\n"; 
+		cerr << "Error:" << ex.what() << "\n";
+		//cerr << "Description:" << strerror(errno) << "\n";
+		return false;
 	}
 	return true;
 }
