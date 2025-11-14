@@ -1,4 +1,5 @@
 #pragma once
+
 #include <filesystem>
 #include <fstream>
 #include <queue>
@@ -12,6 +13,20 @@ using namespace std::filesystem;
 
 enum class LogLevel { Debug, Info, Warning, Error };
 constexpr size_t MAX_LOG_FILE_SIZE = 10000000; // 10 MB
+
+#ifdef _WIN32
+    #include <format>
+	template<typename... Args>
+	inline string formatString(const string& fmt, Args&&... args) {
+    	return vformat(fmt, make_format_args(args ...));
+	}
+#else
+    #include <fmt/core.h>
+	template<typename... Args>
+    constexpr string formatString(const string& fmt, Args&&... args) {
+        return fmt::format(fmt, forward<Args>(args)...);
+#endif
+
 
 class Logger {
 private:
@@ -74,14 +89,8 @@ public:
 	// fmt - The format string
 	// args - The arguments to be formatted into the string
 	template<typename ...Args>
-	void log(const LogLevel& logLevel, const std::string& fmt, Args&& ...args) {
-		ostringstream oss;
-		
-		// Expand the arguments and append to the stream
-		((oss << " " << args), ...); 
-
-		string formated =  oss.str();
-		log(logLevel, formated);
+	void log(const LogLevel& logLevel, const string& fmt, Args&& ...args) {
+		log(logLevel, formatString(fmt, forward<Args>(args)...));
 	}	
 	
 	// processingMessages - Starts a thread to process log messages
@@ -107,10 +116,10 @@ public:
 	void stopProcessing();
 };
 
-// LoggerFactory - Singleton factory for Logger instances	
+// LoggerFactory - Singleton factory for Logger instance	
 struct LoggerFactory {
-	static Logger& getInstance(size_t maxLogSize = MAX_LOG_FILE_SIZE) {
-		static Logger instance(string("chatServer.log"), maxLogSize); // 1 MB max size
+	static Logger& getInstance(string fileName, size_t maxLogSize = MAX_LOG_FILE_SIZE) {
+		static Logger instance(fileName, maxLogSize); // 1 MB max size
 		return instance;
 	}
 };

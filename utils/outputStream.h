@@ -16,14 +16,14 @@ public:
     
     template<typename T>
     OutputStream& operator <<(const T& data) {
-        lock_guard<mutex> lock(m_Mutex);
+        lock_guard lock(m_Mutex);
         m_os << data;
         return *this;
     }
     
     template<typename T>
     void log(const T& data) {
-        lock_guard<mutex> lock(m_Mutex);
+        lock_guard lock(m_Mutex);
         m_os << data << "\n";
     }
 };

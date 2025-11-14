@@ -1,5 +1,3 @@
-#pragma once
-
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
@@ -8,14 +6,14 @@
 
 #include "chatserver.h"
 #include "../utils/logger.h"
-#include "../utils/util.h"
 
 using namespace std;
 
 class HandleConnectionsWindows : public chatServer{
+
 private:
     HANDLE m_IOCP;
-    //SOCKET m_SockfdListener;
+    SOCKET m_SockfdListener;
 public:
     // Constructor
     // logger: reference to Logger instance for logging
@@ -25,16 +23,17 @@ public:
 
     // WorkerThread - worker thread function for handling IOCP events
     // iocp: the IO completion port handle
-    void WorkerThread(HANDLE iocp);
+    void WorkerThread(HANDLE iocp) override;
 
-    // // AssociateSocket - 
-    void AssociateSocket(unsigned __int64 clientSocket) override;
+    // AssociateSocket - 
+    void AssociateSocket(SOCKET clientSocket) override;
    
-    // // AcceptConnections - Waiting for client connections
+    // handleSelectConnections - handles multiple client connections using select()
+    void handleSelectConnections() override;
+
+    // AcceptConnections - Waiting for client connections
     void AcceptConnections() override;
 
     // HandleConnectionsWindows - Initialize the server connection listner socket
     bool createListner() override;
-    
-    ~HandleConnectionsWindows();
 };

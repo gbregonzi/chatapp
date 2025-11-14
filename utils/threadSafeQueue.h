@@ -30,7 +30,7 @@ public:
 
 	bool tryPop(T& value)
 	{
-		lock_guard<mutex> lk(m_Mutex);
+		lock_guard lk(m_Mutex);
 		if (m_DataQueue.empty())
 			return false;
 		value = move(*m_DataQueue.front());
@@ -51,7 +51,7 @@ public:
 
 	shared_ptr<T> tryPop()
 	{
-		lock_guard<mutex> lk(m_Mutex);
+		lock_guard lk(m_Mutex);
 		if (m_DataQueue.empty())
 			return shared_ptr<T>();
 		shared_ptr<T> res = m_DataQueue.front();
@@ -61,14 +61,14 @@ public:
 
 	bool empty() const
 	{
-		lock_guard<mutex> lk(m_Mutex);
+		lock_guard lk(m_Mutex);
 		return m_DataQueue.empty();
 	}
 
 	void push(T new_value)
 	{
 		shared_ptr<T> data(make_shared<T>(move(new_value)));
-		lock_guard<mutex> lk(m_Mutex);
+		lock_guard lk(m_Mutex);
 		m_DataQueue.push(data);
 		m_DataCond.notify_one();
 	}

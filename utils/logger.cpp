@@ -9,9 +9,9 @@
 #include "logger.h"
 #include <stop_token>
 
-#ifndef _WIN32
-#define localtime_s(_Tm, _Time) localtime_r((_Time), (_Tm))
-#endif
+// #ifndef _WIN32
+// #define localtime_s(_Tm, _Time) localtime_r((_Time), (_Tm))
+// #endif
 
 Logger::Logger(const string& fileName, size_t maxLogSize) : m_MaxLogSize(maxLogSize)
 {
@@ -34,7 +34,7 @@ Logger::~Logger() {
 }
 
 bool Logger::closeFile() {
-	lock_guard<mutex> Lock(m_mutex);
+	lock_guard Lock(m_mutex);
 	if (os.is_open()) {
 		os.flush();
 		os.close();
@@ -54,12 +54,12 @@ size_t Logger::logSize() {
 }
 
 bool Logger::isOpen() {
-	lock_guard<mutex> Lock(m_mutex);
+	lock_guard Lock(m_mutex);
 	return os.is_open();
 }
 
 bool Logger::eof() {
-	lock_guard<mutex> Lock(m_mutex);
+	lock_guard Lock(m_mutex);
 	return os.eof();
 }
 
@@ -88,7 +88,7 @@ bool Logger::renameLogFile() {
 	string extension = m_path.extension().string();
 	m_path.replace_extension(""); // Remove the extension for renaming
 	string newFileName = m_path.string() + "_" + oss.str() + extension;
-	lock_guard<mutex> Lock(m_mutex);
+	lock_guard Lock(m_mutex);
 	if (exists(newFileName)) {
 		remove(newFileName);
 	}
@@ -119,7 +119,7 @@ void Logger::stopProcessing() {
 	while(!doneFlag.load())
 	{
 		{
-			lock_guard<mutex> Lock(m_mutex);
+			lock_guard Lock(m_mutex);
 			if (m_queue.empty()) {
 				m_ThreadProcessMessages.request_stop();
 				doneFlag.store(true);
@@ -146,10 +146,10 @@ void Logger::log(const LogLevel &logLevel, const string& message) {
 
     ostringstream oss;
     oss << "[" << put_time(&tm_buf, "%F %T") << ':' << setfill('0') << setw(3) << ms.count() << "] "
-        << "[" << toString(logLevel) << "] " << message;
-	
-    if (!doneFlag.load()) {
-		lock_guard<mutex> lock(m_mutex);
+        << "[" << left << setfill(' ') << setw(7) << toString(logLevel) << "] " << message;
+
+		if (!doneFlag.load()) {
+		lock_guard lock(m_mutex);
         m_queue.emplace(oss.str());
     }
     else {
@@ -164,7 +164,7 @@ void Logger::logError(const string_view errorMsg, int errorCode) {
 
 bool Logger::openFile() {
 	try {
-		lock_guard<mutex> Lock(m_mutex);
+		lock_guard Lock(m_mutex);
 		path workDir = m_path.parent_path();
 		if (!is_directory(workDir)) {
 			cout << "Creating path:" << workDir.string() << "\n";

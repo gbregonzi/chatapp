@@ -27,6 +27,7 @@ HandleConnectionsWindows::HandleConnectionsWindows(Logger &logger, const std::st
 
 bool HandleConnectionsWindows::createListner(){
     struct addrinfo hints{}, *ai = nullptr, *p = nullptr;
+    //int fdMax; // maximum file descriptor number
     char hostName[INET6_ADDRSTRLEN];
     char service[20];
     memset (hostName, 0, sizeof(hostName));
@@ -37,41 +38,31 @@ bool HandleConnectionsWindows::createListner(){
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
-    m_Logger.log(LogLevel::Info, "{}:Staring chatServer", __func__);
-
-    if (getaddrinfo(m_ServerName.c_str(), m_PortNumber.c_str(), &hints, &ai) != 0) {
-        m_Logger.log(LogLevel::Error, "{}:Getaddrinfo failed!",__func__);
-        m_Logger.log(LogLevel::Error, "{}:Error Code:{}",__func__, ERROR_CODE);
-        m_Logger.log(LogLevel::Error, "{}:{}",__func__, gai_strerror(ERROR_CODE));
-
-        m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__ , ERROR_CODE);
-        exit(EXIT_FAILURE);
-    }
-
+    
     for (p = ai; p != nullptr; p = p->ai_next) {
-        m_SockfdListener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-        if (m_SockfdListener < 0) {
+        m_sockfdListener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (m_sockfdListener < 0) {
             continue;
         }
         
         char optval{1};
         int optlen{sizeof(optval)};
-        if (setsockopt(m_SockfdListener, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) < 0)
+        if (setsockopt(m_sockfdListener, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) < 0)
         {
             m_Logger.log(LogLevel::Error, "{}:Setsockopt failed!",__func__);
             m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
-            CLOSESOCKET(m_SockfdListener);
+            CLOSESOCKET(m_sockfdListener);
             continue;
         }
         
 
-        if (bind(m_SockfdListener, p->ai_addr, p->ai_addrlen) != -1) {
+        if (bind(m_sockfdListener, p->ai_addr, p->ai_addrlen) != -1) {
             break; // Success
         }
         
         m_Logger.log(LogLevel::Error, "{}:Bind failed! Retrying...",__func__);
         m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
-        CLOSESOCKET(m_SockfdListener);
+        CLOSESOCKET(m_sockfdListener);
     }
     
 
@@ -79,6 +70,7 @@ bool HandleConnectionsWindows::createListner(){
         m_Logger.log(LogLevel::Error, "{}:Failed to bind socket!",__func__);
         return false;
     }
+    
     m_Logger.log(LogLevel::Info, "{}:Server created and bound successfully.",__func__);
     
     if (getnameinfo(p->ai_addr, p->ai_addrlen, hostName, sizeof(hostName), service, sizeof(service), NI_NOFQDN|NI_NAMEREQD) != 0) {
@@ -86,20 +78,13 @@ bool HandleConnectionsWindows::createListner(){
     }
     
     freeaddrinfo(ai); // all done with this
-    if (listen(m_SockfdListener, MAX_QUEUE_CONNECTINON) < 0)
+    if (listen(m_sockfdListener, MAX_QUEUE_CONNECTINON) < 0)
     {
         m_Logger.log(LogLevel::Error, "{}:Listen failed!",__func__);
         m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
         return false;
     }
     m_Logger.log(LogLevel::Info, "{}:Server name:{} Port:{}",__func__, hostName, service);
-    m_Logger.log(LogLevel::Info, "{}:Using IOCP for handling connections.",__func__);
-    
-    CreateIoCompletionPort((HANDLE)m_SockfdListener, m_IOCP, (ULONG_PTR)m_SockfdListener, 0);
-    m_Logger.log(LogLevel::Info, "{}:Server is ready to accept connections.",__func__);
-    for (int i = 0; i < MAX_THREAD ; ++i) {
-        m_Threads.emplace_back(&HandleConnectionsWindows::WorkerThread, this, m_IOCP);
-    }
     return true; 
 }
 
@@ -108,7 +93,9 @@ void HandleConnectionsWindows::AssociateSocket(SOCKET clientSocket) {
     if (CreateIoCompletionPort((HANDLE)clientSocket, m_IOCP, (ULONG_PTR)context, 0) == NULL){
         m_Logger.log(LogLevel::Error, "{}:CreateIoCompletionPort failed:{}", __func__, ERROR_CODE);
         m_Logger.log(LogLevel::Error, "{}:{}", __func__ , getLastErrorDescription());
-        closeSocket(clientSocket);
+        CLOSESOCKET(clientSocket);
+        lock_guard lock(m_Mutex);
+        m_ClientSockets.erase(clientSocket);
         delete context;
         return;
     }
@@ -118,7 +105,9 @@ void HandleConnectionsWindows::AssociateSocket(SOCKET clientSocket) {
     if (ret != 0 && ERROR_CODE != WSA_IO_PENDING) {
         m_Logger.log(LogLevel::Error, "{}:WSARecv failed:{}", __func__, ERROR_CODE);
         m_Logger.log(LogLevel::Error, "{}:{}", __func__ , getLastErrorDescription());
-        closeSocket(clientSocket);
+        closesocket(clientSocket);
+        lock_guard lock(m_Mutex);
+        m_ClientSockets.erase(clientSocket);
         delete context;
     }
 }
@@ -135,8 +124,9 @@ void HandleConnectionsWindows::WorkerThread(HANDLE iocp) {
         ClientContext* context = reinterpret_cast<ClientContext*>(completionKey);
 
         if (bytesTransferred == 0) {
-            
-            closeSocket(context->socket);
+            closesocket(context->socket);
+            lock_guard lock(m_Mutex);
+            m_ClientSockets.erase(context->socket);
             delete context;
             continue;
         }
@@ -157,7 +147,6 @@ void HandleConnectionsWindows::WorkerThread(HANDLE iocp) {
 
 
 void HandleConnectionsWindows::AcceptConnections() {
-    m_Logger.log(LogLevel::Info, "{}:Accept Connections start", __func__);
     while (getIsConnected()) {
         SOCKET clientSocket = accept(m_SockfdListener, nullptr, nullptr);
         if (clientSocket == INVALID_SOCKET) {
@@ -178,15 +167,15 @@ void HandleConnectionsWindows::AcceptConnections() {
         getClientIP(clientSocket);
         AssociateSocket(clientSocket);
     }
-    CloseHandle(m_IOCP);
 }
 
-HandleConnectionsWindows::~HandleConnectionsWindows()
-{
-    CLOSESOCKET(m_SockfdListener);
-    setIsConnected(false);
-    m_BroadcastThread.request_stop();
-    WSACleanup();
-    m_Logger.log(LogLevel::Debug, "{}:HandleConnectionsWindows class destroyed.",__func__);
-    m_Logger.setDone(true);
+void HandleConnectionsWindows::handleSelectConnections(){
+    m_Logger.log(LogLevel::Info, "{}:Using IOCP for handling connections.",__func__);
+    
+    CreateIoCompletionPort((HANDLE)m_SockfdListener, m_IOCP, (ULONG_PTR)m_SockfdListener, 0);
+    m_Logger.log(LogLevel::Info, "{}:Server is ready to accept connections.",__func__);
+    for (int i = 0; i < MAX_THREAD ; ++i) {
+        m_Threads.emplace_back(&HandleConnectionsWindows::WorkerThread, this, m_IOCP);
+    }
+    CloseHandle(m_IOCP);
 }

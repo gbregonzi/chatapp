@@ -2,7 +2,7 @@
 #include <string>
 #include <thread>
 #include <mutex>
-#include "chatserver.h"
+#include "chatServer.h"
 #include "../utils/logger.h"
 
 using namespace std;
@@ -12,7 +12,7 @@ private:
     jthread readFromClientThread;
     jthread serverBroadcastThread;
     Logger& m_Logger;
-    ServerSocket& m_ServerSocket;
+    unique_ptr<chatServer> m_chatServer;
     string serverName{};
     string portNumber{};
 public:
