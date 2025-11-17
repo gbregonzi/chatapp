@@ -103,6 +103,7 @@ bool Logger::renameLogFile() {
 		}
 		else {
 			cout << "Log file renamed to: " << newFileName << "\n";
+			cout << "Start new Log File at: " << m_path.string() << "\n";
 		}
 	}
 	catch(const exception &ex){

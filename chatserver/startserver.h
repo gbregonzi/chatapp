@@ -16,6 +16,6 @@ private:
     string serverName{};
     string portNumber{};
 public:
-    StartServer(const string& serverName, const string& portNumber);
+    StartServer(const string& logFileName, const string& serverName, const string& portNumber);
     int Run();
 };

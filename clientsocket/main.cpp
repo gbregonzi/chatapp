@@ -54,7 +54,7 @@ void startReadMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive
 int main (int argc, char *argv[]) {
     atomic<bool> chatActive{true};
     string logFileName;
-    if (argc != 3) {
+    if (argc != 4) {
         cerr << "Usage: " << argv[0] << " <server:ip> <server_port> <log_file_name>" << std::endl;
         return 1;
     }
@@ -66,17 +66,17 @@ int main (int argc, char *argv[]) {
     else {
             logFileName = string(argv[3]);
     }
-    
+
     string server_ip = argv[1];
     const char *portHostName = argv[2];
-    cout << "Server IP: " << server_ip << ", Port: " << portHostName << endl; 
+    cout << "Server IP: " << server_ip << ", Port: " << portHostName << "Log File Name:" << logFileName << "\n"; 
     ClientSocket& client = ClientSocketFactory::getInstance(server_ip, portHostName, logFileName);
     if (client.connect() == 0) {
-        cout << "Connected to server successfully!" << endl;
+        cout << "Connected to server successfully!" << "\n";
         startSendMessageThread(client, chatActive);
         startReadMessageThread(client, chatActive);
     } else {
-        cout << "Failed to connect to server." << endl;
+        cout << "Failed to connect to server." << "\n";
         chatActive.store(false);
         return EXIT_FAILURE;
     }
