@@ -30,7 +30,7 @@ public:
     void workerThread(HANDLE iocp);
 
     // // associateSocket - 
-    void associateSocket(uint64_t clientSocket) override;
+    void associateSocket(uint64_t clientSocket);
    
     // // acceptConnections - Waiting for client connections
     void acceptConnections() override;

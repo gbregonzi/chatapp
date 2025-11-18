@@ -74,14 +74,11 @@ class ChatServer {
         
         // setIsConnected - sets the connection status
         void setIsConnected(bool isConnected);
-        
-        // AssociateSocket -  
-        virtual void associateSocket(uint64_t clientSocket) = 0;
-               
+                      
         // // AcceptConnections - accepts new client connections (Windows IOCP version)
         virtual void acceptConnections() = 0;
 
-        // HandleConnectionsWindows - Initialize the server connection listner socket
+        // createListner - Initialize the server connection listner socket
         bool createListner();
 
         // closeSocket - closes the client socket 
