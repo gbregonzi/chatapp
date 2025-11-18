@@ -76,7 +76,7 @@ class chatServer {
         void setIsConnected(bool isConnected);
         
         // AssociateSocket -  
-        virtual void AssociateSocket(unsigned __int64 clientSocket) = 0;
+        virtual void AssociateSocket(unsigned int64_t clientSocket) = 0;
                
         // // AcceptConnections - accepts new client connections (Windows IOCP version)
         virtual void AcceptConnections() = 0;

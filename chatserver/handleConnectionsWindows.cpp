@@ -1,4 +1,3 @@
-
 #include "handleConnectionsWindows.h"
 
 typedef int socklen_t;

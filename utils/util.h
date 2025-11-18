@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <cstring>
 
 #ifdef _WIN32
 typedef int socklen_t;

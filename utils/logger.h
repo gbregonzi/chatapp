@@ -8,7 +8,7 @@
 #include <atomic>
 #include <thread>
 #include <iostream>
-
+#include <string>
 
 using namespace std;
 using namespace std::filesystem;
@@ -16,19 +16,33 @@ using namespace std::filesystem;
 enum class LogLevel { Debug, Info, Warning, Error };
 constexpr size_t MAX_LOG_FILE_SIZE = 10000000; // 10 MB
 
+// #ifdef _WIN32
+//     #include <format>
+// 	template<typename... Args>
+// 	inline string formatString(const string& fmt, Args&&... args) {
+//     	return vformat(fmt, make_format_args(args ...));
+// 	}
+// #else
+//     #include <fmt/core.h>
+// 	template<typename... Args>
+//     inline string formatString(fmt::format_string<Args...> fmt, Args&&... args) {
+//         return fmt::format(fmt, forward<Args>(args)...);
+// 	}
+// #endif
+
 #ifdef _WIN32
     #include <format>
-	template<typename... Args>
-	inline string formatString(const string& fmt, Args&&... args) {
-    	return vformat(fmt, make_format_args(args ...));
-	}
+    template<typename... Args>
+    inline string formatString(const string& fmt, Args&&... args) {
+        return vformat(fmt, make_format_args(forward<Args>(args)...));
+    }
 #else
     #include <fmt/core.h>
-	template<typename... Args>
-    constexpr string formatString(const string& fmt, Args&&... args) {
+    template<typename... Args>
+    inline string formatString(fmt::format_string<Args...> fmt, Args&&... args) {
         return fmt::format(fmt, forward<Args>(args)...);
+    }
 #endif
-
 
 class Logger {
 private:
@@ -90,11 +104,23 @@ public:
 	// logLevel - The log level of the message
 	// fmt - The format string
 	// args - The arguments to be formatted into the string
-	template<typename ...Args>
-	void log(const LogLevel& logLevel, const string& fmt, Args&& ...args) {
+	// template<typename ...Args>
+	// void log(const LogLevel& logLevel, const string& fmt, Args&& ...args) {
+	// 	log(logLevel, formatString(fmt, forward<Args>(args)...));
+	// }
+
+#ifdef _WIN32
+    template<typename... Args>
+    void log(const LogLevel& logLevel, const string& fmt, Args&& ...args) {
 		log(logLevel, formatString(fmt, forward<Args>(args)...));
-	}	
-	
+    }
+#else
+    template<typename... Args>
+    void log(const LogLevel& logLevel, fmt::format_string<Args...> fmt, Args&& ...args) {
+		log(logLevel, formatString(fmt, forward<Args>(args)...));
+	}
+#endif
+
 	// processingMessages - Starts a thread to process log messages
 	void processingMessages();
 

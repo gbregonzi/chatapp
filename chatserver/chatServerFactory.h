@@ -2,7 +2,7 @@
 #include <memory>
 #include <string>
 
-#include "chatServer.h"
+#include "chatserver.h"
 #include "handleConnectionsWindows.h"
 //#include "handleConnectionsLinux.h"
 using namespace std;

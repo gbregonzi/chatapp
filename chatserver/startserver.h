@@ -2,7 +2,7 @@
 #include <string>
 #include <thread>
 #include <mutex>
-#include "chatServer.h"
+#include "chatserver.h"
 #include "../utils/logger.h"
 
 using namespace std;

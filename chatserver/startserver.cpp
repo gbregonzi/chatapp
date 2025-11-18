@@ -1,4 +1,4 @@
-#include "startServer.h"
+#include "startserver.h"
 #include "chatServerFactory.h"
 
 StartServer::StartServer(const string& logFileName, const string& serverName, const string& portNumber)

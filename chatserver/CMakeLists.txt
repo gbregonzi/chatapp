@@ -22,26 +22,39 @@ set(SOURCES
     main.cpp
     chatserver.cpp
     startserver.cpp
-    handleConnectionsWindows.cpp
     ../utils/logger.cpp
     ../utils/util.cpp
 )
+
+if(WIN32)
+    message(STATUS "Compiling for Windows")
+    list(APPEND SOURCES handleConnectionsWindows.cpp)
+elseif(UNIX)
+    message(STATUS "Compiling for Linux")
+    list(APPEND SOURCES handleConnectionsLinux.cpp)
+endif()
 
 # List headers separately (optional, for IDE visibility)
 set(HEADERS
     chatserver.h
     startserver.h
     chatServerFactory.h
-    handleConnectionsWindows.h
     ../utils/logger.h
     ../utils/util.h
 )
 
+if(WIN32)
+    list(APPEND HEADERS handleConnectionsWindows.h)
+elseif(UNIX)
+    list(APPEND HEADERS handleConnectionsLinux.h)
+endif()
+
 # Watch for file changes (optional)
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY CMAKE_CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-)
+#set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY CMAKE_CONFIGURE_DEPENDS
+#    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+#    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+#)
+
 target_sources(chatServer PRIVATE ${SOURCES} ${HEADERS})
 
 if(WIN32)

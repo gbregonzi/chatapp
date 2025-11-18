@@ -15,7 +15,6 @@ using namespace std;
 class HandleConnectionsWindows : public chatServer{
 private:
     HANDLE m_IOCP;
-    //SOCKET m_SockfdListener;
 public:
     // Constructor
     // logger: reference to Logger instance for logging
@@ -28,7 +27,7 @@ public:
     void WorkerThread(HANDLE iocp);
 
     // // AssociateSocket - 
-    void AssociateSocket(unsigned __int64 clientSocket) override;
+    void AssociateSocket(unsigned int64_t clientSocket) override;
    
     // // AcceptConnections - Waiting for client connections
     void AcceptConnections() override;
