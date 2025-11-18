@@ -13,7 +13,7 @@ void HandleConnectionsLinux::WorkerThread(HANDLE iocp){
 
 }
 
-void HandleConnectionsLinux::AssociateSocket(unsigned int64_t clientSocket){
+void HandleConnectionsLinux::AssociateSocket(uint64_t clientSocket){
 
 }
    
