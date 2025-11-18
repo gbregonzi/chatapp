@@ -61,7 +61,7 @@ public:
         }
     }
 
-    void AssociateSocket(SOCKET clientSocket) {
+    void associateSocket(SOCKET clientSocket) {
         ClientContext* context = new ClientContext(clientSocket);
         CreateIoCompletionPort((HANDLE)clientSocket, iocp, (ULONG_PTR)context, 0);
 
@@ -119,7 +119,7 @@ int main() {
             continue;
         }
 
-        server.AssociateSocket(clientSocket);
+        server.associateSocket(clientSocket);
     }
 
     closesocket(listenSocket);

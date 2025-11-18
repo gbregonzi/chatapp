@@ -9,7 +9,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build-debug/chatserver/chatserver.exe",
-      "args": ["DESKTOP-GILMAR", "chatServer.log"],
+      "args": ["DESKTOP-GILMAR", "8080", "chatServer.log"],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",
       "environment": [],

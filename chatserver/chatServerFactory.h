@@ -7,7 +7,7 @@
 //#include "handleConnectionsLinux.h"
 using namespace std;
 struct chatServerFactory {
-    inline static unique_ptr<chatServer> getInstance(Logger &logger, 
+    inline static unique_ptr<ChatServer> getInstance(Logger &logger, 
                                                         const string& serverName, 
                                                         const string& portNumber) {
 #ifdef _WIN32

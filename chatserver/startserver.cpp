@@ -12,7 +12,7 @@ StartServer::StartServer(const string& logFileName, const string& serverName, co
 int StartServer::Run(){
     if (m_chatServer->getIsConnected()) {
         if (m_chatServer->createListner()){
-            m_chatServer->AcceptConnections();    
+            m_chatServer->acceptConnections();    
         }
         m_chatServer->closeAllClientSockets();
         m_Logger.log(LogLevel::Info, "{}:{}", __func__ , "Server is shutting down...");

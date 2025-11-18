@@ -7,15 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(CTest)
 enable_testing()
 
-# Add all .cpp files in the current directory
-file(GLOB SOURCES "*.cpp" "*.h")
-
-add_library(startServer ${SOURCES})
-add_library(handleConnectionsWindows ${SOURCES})
-
-add_executable(chatServer ${SOURCES})
-
-set_property(TARGET chatServer PROPERTY CMAKE_CXX_STANDARD 20)
 
 # Explicitly list all source files
 set(SOURCES
@@ -26,14 +17,6 @@ set(SOURCES
     ../utils/util.cpp
 )
 
-if(WIN32)
-    message(STATUS "Compiling for Windows")
-    list(APPEND SOURCES handleConnectionsWindows.cpp)
-elseif(UNIX)
-    message(STATUS "Compiling for Linux")
-    list(APPEND SOURCES handleConnectionsLinux.cpp)
-endif()
-
 # List headers separately (optional, for IDE visibility)
 set(HEADERS
     chatserver.h
@@ -43,17 +26,22 @@ set(HEADERS
     ../utils/util.h
 )
 
-if(WIN32)
-    list(APPEND HEADERS handleConnectionsWindows.h)
-elseif(UNIX)
-    list(APPEND HEADERS handleConnectionsLinux.h)
-endif()
 
-# Watch for file changes (optional)
-#set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY CMAKE_CONFIGURE_DEPENDS
-#    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
-#    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
-#)
+if(WIN32)
+    message(STATUS "Compiling for Windows")
+    list(APPEND SOURCES handleConnectionsWindows.cpp)
+    list(APPEND HEADERS handleConnectionsWindows.h)
+else()    
+    message(STATUS "Compiling for Linux")
+    list(APPEND SOURCES handleConnectionsLinux.cpp)
+    list(APPEND HEADERS handleConnectionsLinux.h)
+endif()    
+
+add_library(startServer ${SOURCES})
+
+add_executable(chatServer ${SOURCES})
+
+set_property(TARGET chatServer PROPERTY CMAKE_CXX_STANDARD 20)
 
 target_sources(chatServer PRIVATE ${SOURCES} ${HEADERS})
 

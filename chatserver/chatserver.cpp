@@ -11,28 +11,28 @@
 #include <vector>
 #include <algorithm>
 
-#include "chatserver.h"
+#include "ChatServer.h"
 
 using namespace std;
 
-chatServer::chatServer(Logger& logger, const string& serverName, const string& port): 
+ChatServer::ChatServer(Logger& logger, const string& serverName, const string& port): 
                           m_Logger(logger), m_ServerName(serverName), m_PortNumber(port)   
 {
     m_IsConnected.store(true);
     threadBroadcastMessage();
 }
 
-bool chatServer::getIsConnected() const
+bool ChatServer::getIsConnected() const
 {
     return m_IsConnected.load();
 }
 
-void chatServer::setIsConnected(bool isConnected) 
+void ChatServer::setIsConnected(bool isConnected) 
 {
     m_IsConnected.store(isConnected);
 }
 
-void chatServer::closeAllClientSockets() 
+void ChatServer::closeAllClientSockets() 
 {
     lock_guard lock(m_Mutex);
     for (const auto &sd : m_ClientSockets){
@@ -42,7 +42,7 @@ void chatServer::closeAllClientSockets()
     m_Logger.log(LogLevel::Debug, "{}:All client sockets closed.",__func__);    
 }
 
-bool chatServer::getClientIP(int sd )
+bool ChatServer::getClientIP(int sd )
 {
     char ip[INET6_ADDRSTRLEN];
     int port;
@@ -71,7 +71,7 @@ bool chatServer::getClientIP(int sd )
     return true;
 }
 
-bool chatServer::sendMessage(int sd, const string_view message)
+bool ChatServer::sendMessage(int sd, const string_view message)
 {
     size_t bytesSent = send(sd, message.data(), message.length(), 0);
     if (bytesSent < 0)
@@ -83,7 +83,7 @@ bool chatServer::sendMessage(int sd, const string_view message)
     return true;
 }
 
-void chatServer::threadBroadcastMessage() {
+void ChatServer::threadBroadcastMessage() {
     m_Logger.log(LogLevel::Debug, "{}:Broadcast thread started.", __func__);
 
     m_BroadcastThread = jthread([this](stop_token token) {
@@ -112,7 +112,7 @@ void chatServer::threadBroadcastMessage() {
     });
 }
 
-void chatServer::closeSocket(int sd)
+void ChatServer::closeSocket(int sd)
 {
     CLOSESOCKET(sd);
     lock_guard lock(m_Mutex);
@@ -120,7 +120,7 @@ void chatServer::closeSocket(int sd)
     m_Logger.log(LogLevel::Debug, "{}:Socket closed.",__func__);
 }
 
-unordered_set<int> chatServer::getClientSockets() const {
+unordered_set<int> ChatServer::getClientSockets() const {
     return m_ClientSockets;
 }
 

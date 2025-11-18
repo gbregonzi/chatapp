@@ -12,7 +12,7 @@ private:
     jthread readFromClientThread;
     jthread serverBroadcastThread;
     Logger& m_Logger;
-    unique_ptr<chatServer> m_chatServer;
+    unique_ptr<ChatServer> m_chatServer;
     string serverName{};
     string portNumber{};
 public:

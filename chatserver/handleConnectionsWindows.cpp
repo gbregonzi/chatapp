@@ -18,7 +18,7 @@ struct ClientContext {
 };
 
 HandleConnectionsWindows::HandleConnectionsWindows(Logger &logger, const std::string& serverName, const std::string& portNumber)
-    : chatServer(logger, serverName, portNumber) {
+    : ChatServer(logger, serverName, portNumber) {
     WSADATA wsaData;
     WSAStartup(MAKEWORD(2, 2), &wsaData);
     m_IOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
@@ -97,12 +97,12 @@ bool HandleConnectionsWindows::createListner(){
     CreateIoCompletionPort((HANDLE)m_SockfdListener, m_IOCP, (ULONG_PTR)m_SockfdListener, 0);
     m_Logger.log(LogLevel::Info, "{}:Server is ready to accept connections.",__func__);
     for (int i = 0; i < MAX_THREAD ; ++i) {
-        m_Threads.emplace_back(&HandleConnectionsWindows::WorkerThread, this, m_IOCP);
+        m_Threads.emplace_back(&HandleConnectionsWindows::workerThread, this, m_IOCP);
     }
     return true; 
 }
 
-void HandleConnectionsWindows::AssociateSocket(SOCKET clientSocket) {
+void HandleConnectionsWindows::associateSocket(SOCKET clientSocket) {
     ClientContext* context = new ClientContext(clientSocket);
     if (CreateIoCompletionPort((HANDLE)clientSocket, m_IOCP, (ULONG_PTR)context, 0) == NULL){
         m_Logger.log(LogLevel::Error, "{}:CreateIoCompletionPort failed:{}", __func__, ERROR_CODE);
@@ -122,7 +122,7 @@ void HandleConnectionsWindows::AssociateSocket(SOCKET clientSocket) {
     }
 }
 
-void HandleConnectionsWindows::WorkerThread(HANDLE iocp) {
+void HandleConnectionsWindows::workerThread(HANDLE iocp) {
     DWORD bytesTransferred;
     ULONG_PTR completionKey;
     LPOVERLAPPED lpOverlapped;
@@ -155,7 +155,7 @@ void HandleConnectionsWindows::WorkerThread(HANDLE iocp) {
 }
 
 
-void HandleConnectionsWindows::AcceptConnections() {
+void HandleConnectionsWindows::acceptConnections() {
     m_Logger.log(LogLevel::Info, "{}:Accept Connections start", __func__);
     while (getIsConnected()) {
         SOCKET clientSocket = accept(m_SockfdListener, nullptr, nullptr);
@@ -175,7 +175,7 @@ void HandleConnectionsWindows::AcceptConnections() {
             continue;
         }   
         getClientIP(clientSocket);
-        AssociateSocket(clientSocket);
+        associateSocket(clientSocket);
     }
     CloseHandle(m_IOCP);
 }

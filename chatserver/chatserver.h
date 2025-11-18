@@ -35,7 +35,7 @@ constexpr int MAX_PORT_TRIES{10};
 constexpr int MAX_QUEUE_CONNECTINON{10};
 constexpr int BUFFER_SIZE{1024};
 
-class chatServer {
+class ChatServer {
     protected:
     #ifdef _WIN32
         SOCKET m_SockfdListener;
@@ -62,7 +62,7 @@ class chatServer {
         // logger: reference to Logger instance for logging
         // serverName: the server hostname or IP address
         // portNumber: the port number to bind the server socket
-        chatServer(Logger &logger, const string& serverName, const string& portNumber);
+        ChatServer(Logger &logger, const string& serverName, const string& portNumber);
         
         // getClientIP - retrieves and prints the connected client's IP address and port
         // sd: the socket descriptor of the connected client
@@ -76,10 +76,10 @@ class chatServer {
         void setIsConnected(bool isConnected);
         
         // AssociateSocket -  
-        virtual void AssociateSocket(uint64_t clientSocket) = 0;
+        virtual void associateSocket(uint64_t clientSocket) = 0;
                
         // // AcceptConnections - accepts new client connections (Windows IOCP version)
-        virtual void AcceptConnections() = 0;
+        virtual void acceptConnections() = 0;
 
         // HandleConnectionsWindows - Initialize the server connection listner socket
         virtual bool createListner() = 0;
