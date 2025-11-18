@@ -33,9 +33,12 @@ if(WIN32)
     list(APPEND HEADERS handleConnectionsWindows.h)
 else()    
     message(STATUS "Compiling for Linux")
+    set(CMAKE_PREFIX_PATH "../../../vcpkg/installed/x64-windows/share/fmt")
+    find_package(fmt CONFIG REQUIRED)
     list(APPEND SOURCES handleConnectionsLinux.cpp)
     list(APPEND HEADERS handleConnectionsLinux.h)
 endif()    
+
 
 add_library(startServer ${SOURCES})
 
@@ -50,5 +53,5 @@ if(WIN32)
     target_link_libraries(chatServer ws2_32)
 else()
     # Link pthread library on Unix-like systems 
-    target_link_libraries(chatServer pthread)   
+    target_link_libraries(chatServer pthread fmt::fmt)   
 endif()

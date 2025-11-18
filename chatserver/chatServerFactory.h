@@ -3,8 +3,11 @@
 #include <string>
 
 #include "chatserver.h"
-#include "handleConnectionsWindows.h"
-//#include "handleConnectionsLinux.h"
+#ifdef _WIN32
+        #include "handleConnectionsWindows.h"
+#else
+        #include "handleConnectionsLinux.h"
+#endif
 using namespace std;
 struct chatServerFactory {
     inline static unique_ptr<ChatServer> getInstance(Logger &logger, 

@@ -37,11 +37,11 @@ constexpr int BUFFER_SIZE{1024};
 
 class ChatServer {
     protected:
-    #ifdef _WIN32
+#ifdef _WIN32
         SOCKET m_SockfdListener;
-    #else
+#else
         int m_SockfdListener;
-    #endif
+#endif
         string m_ServerName;
         string m_PortNumber;
     private:
@@ -82,7 +82,7 @@ class ChatServer {
         virtual void acceptConnections() = 0;
 
         // HandleConnectionsWindows - Initialize the server connection listner socket
-        virtual bool createListner() = 0;
+        bool createListner();
 
         // closeSocket - closes the client socket 
         // sd: the socket descriptor 

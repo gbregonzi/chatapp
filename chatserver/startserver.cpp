@@ -2,9 +2,7 @@
 #include "chatServerFactory.h"
 
 StartServer::StartServer(const string& logFileName, const string& serverName, const string& portNumber)
-    : serverName(serverName),
-      portNumber(portNumber),
-      m_Logger(LoggerFactory::getInstance(logFileName)),
+    : m_Logger(LoggerFactory::getInstance(logFileName)),
       m_chatServer(chatServerFactory::getInstance(m_Logger, serverName, portNumber))
 {
 }

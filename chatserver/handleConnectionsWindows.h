@@ -35,7 +35,7 @@ public:
     // // acceptConnections - Waiting for client connections
     void acceptConnections() override;
 
-    // HandleConnectionsWindows - Initialize the server connection listner socket
-    bool createListner() override;
+    // CreateIoCompletionPort - Initialize IOCP connection
+    void createIoCompletionPort();
     
 };

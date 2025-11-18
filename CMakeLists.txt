@@ -5,9 +5,6 @@ project(ChatApp)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-#set(CMAKE_PREFIX_PATH "../../../vcpkg/installed/x64-windows/share/fmt")
-#find_package(fmt CONFIG REQUIRED)
-
 # Add subdirectories
 add_subdirectory(chatserver)
 add_subdirectory(iocpTest)

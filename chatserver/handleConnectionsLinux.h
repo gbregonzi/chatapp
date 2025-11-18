@@ -11,15 +11,19 @@ using namespace std;
 typedef void *HANDLE;
 typedef unsigned long long SOCKET;
 
-class HandleConnectionsLinux: public chatServer{
+constexpr int MAX_EVENTS = 10;
+
+class HandleConnectionsLinux: public ChatServer{
 private:
     SOCKET m_epollFd;
+    struct epoll_event ev, events[MAX_EVENTS];
+    
 public:
     // Constructor
     // logger: reference to Logger instance for logging
     // serverName: the server hostname or IP address
     // portNumber: the port number to bind the server socket
-    HandleConnectionsLinux(Logger &logger, const std::string& serverName, const std::string& portNumber);
+    HandleConnectionsLinux(Logger &logger, const string& serverName, const string& portNumber);
 
     //Destructor
     ~HandleConnectionsLinux();
@@ -28,13 +32,9 @@ public:
     // iocp: the IO completion port handle
     void workerThread(HANDLE iocp);
 
-    // // AssociateSocket - 
+    // AssociateSocket - 
     void associateSocket(uint64_t clientSocket) override;
    
-    // // AcceptConnections - Waiting for client connections
+    // AcceptConnections - Waiting for client connections
     void acceptConnections() override;
-
-    // HandleConnectionsWindows - Initialize the server connection listner socket
-    bool createListner() override;
-    
 };
