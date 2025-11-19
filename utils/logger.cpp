@@ -78,7 +78,8 @@ bool Logger::renameLogFile() {
 	time_t time = chrono::system_clock::to_time_t(now);
 	auto ms = chrono::duration_cast<chrono::milliseconds>(now.time_since_epoch()) % 1000;
 	tm tm_buf;
-	if (localtime_s(&tm_buf, &time) == nullptr) {
+	localtime_s(&tm_buf, &time);
+	if (tm_buf.tm_year == 0) {
 		logError(string("localtime_s failed in renameLogFile for:" + m_path.string()), errno);
 		return false;
 	}
@@ -152,7 +153,8 @@ void Logger::log(const LogLevel &logLevel, const string& message) {
     auto time = chrono::system_clock::to_time_t(now);
     auto ms = chrono::duration_cast<chrono::milliseconds>(now.time_since_epoch()) % 1000;
     tm tm_buf;
-    if (localtime_s(&tm_buf, &time) == nullptr) {
+	localtime_s(&tm_buf, &time);
+    if (tm_buf.tm_year == 0) {
         logError(string("localtime_s failed in writeLog for:" + m_path.filename().string()), errno);
 		return;
     }
