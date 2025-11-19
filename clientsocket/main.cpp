@@ -58,12 +58,12 @@ int main (int argc, char *argv[]) {
     atomic<bool> chatActive{true};
     string logFileName;
     if (argc != 4) {
-        cerr << "Usage: " << argv[0] << " <server:ip> <server_port> <log_file_name>" << std::endl;
+        cerr << __func__ << ":Usage: " << argv[0] << " <server:ip> <server_port> <log_file_name>" << std::endl;
         return 1;
     }
     
     if (argc < 4){
-        cout << "The file name wasn't provide, Using default \"clientSocket.log\"" << "\n";
+        cout << __func__ << ":The file name wasn't provide, Using default \"clientSocket.log\"" << "\n";
         logFileName = "clientSocket.log";
     }
     else {
@@ -72,14 +72,14 @@ int main (int argc, char *argv[]) {
 
     string server_ip = argv[1];
     const char *portHostName = argv[2];
-    cout << "Server IP: " << server_ip << ", Port: " << portHostName << "Log File Name:" << logFileName << "\n"; 
+    cout << __func__ << ":Server IP: " << server_ip << ", Port: " << portHostName << "Log File Name:" << logFileName << "\n"; 
     ClientSocket& client = ClientSocketFactory::getInstance(server_ip, portHostName, logFileName);
-    if (client.connect() == 0) {
-        cout << "Connected to server successfully!" << "\n";
+    if (client.connect() == 0 && client.getLogggerFileOpen()) {
+        cout << __func__ << ":Connected to server successfully!" << "\n";
         startSendMessageThread(client, chatActive);
         startReadMessageThread(client, chatActive);
     } else {
-        cout << "Failed to connect to server." << "\n";
+        cout << __func__ << ":Failed to connect to server." << "\n";
         chatActive.store(false);
         return EXIT_FAILURE;
     }

@@ -51,10 +51,12 @@ public:
     // returns number of bytes read, or -1 on error/disconnection
     size_t readMessage(string &message);
 
-    // LogErrorMessage - prints error code and description
+    // logErrorMessage - prints error code and description
     // errorCode: the error code to be printed
-    void LogErrorMessage(int errorCode);
+    void logErrorMessage(int errorCode);
 
+    // getLoggerFileOpen - verify if the log file it's open
+    bool getLogggerFileOpen();
 };
 
 // LoggerFactory - Singleton factory for ClientSocket instance

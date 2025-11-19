@@ -119,8 +119,12 @@ ClientSocket::~ClientSocket()
     m_Logger.log(LogLevel::Info,"{}:ClientSocket for:{}:{} destroyed.",__func__, m_ip, m_PortHostName);
 }
 
-void ClientSocket::LogErrorMessage(int errorCode)
+void ClientSocket::logErrorMessage(int errorCode)
 {
     m_Logger.log(LogLevel::Error, "{}:Error code:{}",__func__, errorCode);
     m_Logger.log(LogLevel::Error, "{}:Error description:{}",__func__, strerror(errorCode));
+}
+
+bool ClientSocket::getLogggerFileOpen(){
+    return m_Logger.isOpen();
 }

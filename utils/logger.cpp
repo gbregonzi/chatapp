@@ -18,7 +18,7 @@ Logger::Logger(const string& fileName, size_t maxLogSize) : m_MaxLogSize(maxLogS
 	static_assert(!is_copy_constructible_v<Logger>, "Logger should not be copy constructible");
 	static_assert(!is_copy_assignable_v<Logger>, "Logger should not be copy assignable");
 	static_assert(!is_move_assignable_v<Logger>, "Logger should not be move assignable");
-	m_path = current_path().string() + R"(\Log\)" + fileName.data();
+	m_path = current_path() / "log" / fileName.data();
 	if (!renameLogFile()){
 		return;
 	}
@@ -71,14 +71,14 @@ bool Logger::renameLogFile() {
 		closeFile(); // Close the file before renaming
 	}
 	if(!exists(m_path)) {
-		cout << "There is no log file to rename:" << m_path.string() << "\n";
+		cout << "There is no log file to rename:" << m_path << "\n";
 		return true;
 	}
 	auto now = chrono::system_clock::now();
 	time_t time = chrono::system_clock::to_time_t(now);
 	auto ms = chrono::duration_cast<chrono::milliseconds>(now.time_since_epoch()) % 1000;
 	tm tm_buf;
-	if (localtime_s(&tm_buf, &time)) {
+	if (localtime_s(&tm_buf, &time) == nullptr) {
 		logError(string("localtime_s failed in renameLogFile for:" + m_path.string()), errno);
 		return false;
 	}
@@ -152,8 +152,9 @@ void Logger::log(const LogLevel &logLevel, const string& message) {
     auto time = chrono::system_clock::to_time_t(now);
     auto ms = chrono::duration_cast<chrono::milliseconds>(now.time_since_epoch()) % 1000;
     tm tm_buf;
-    if (localtime_s(&tm_buf, &time) != 0) {
+    if (localtime_s(&tm_buf, &time) == nullptr) {
         logError(string("localtime_s failed in writeLog for:" + m_path.filename().string()), errno);
+		return;
     }
 
     ostringstream oss;
@@ -194,6 +195,7 @@ bool Logger::openFile() {
 
 			return false;
 		}
+		cout << "Create log file at:" << m_path.string() << "\n";
 	}
 	catch (const exception& ex) {
 		cout << ex.what() << "\n";
