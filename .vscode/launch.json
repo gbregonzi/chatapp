@@ -5,7 +5,31 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "chatServer",
+      "name": "chatApp Linux",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build-debug/chatserver/chatserver",
+      "args": ["localhost", "8080", "chatServer.log"],
+      "stopAtEntry": false,
+      "cwd": "${fileDirname}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+          {
+              "description": "Enable pretty-printing for gdb",
+              "text": "-enable-pretty-printing",
+              "ignoreFailures": true
+          },
+          {
+              "description": "Set Disassembly Flavor to Intel",
+              "text": "-gdb-set disassembly-flavor intel",
+              "ignoreFailures": true
+          }
+      ]
+    },
+    {
+      "name": "chatServer Windows",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build-debug/chatserver/chatserver.exe",
@@ -29,10 +53,31 @@
       ]
     },
     {
-      "name": "clientSocket",
+      "name": "clientSocket Windows",
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build-debug/clientsocket/clientsocket.exe",
+      "args": ["desktop-gilmar", "8080", "clientSocket.log"],
+      "cwd": "${workspaceFolder}/build-debug/clientsocket",
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        },
+        {
+          "description": "Set Disassembly Flavor to Intel",
+          "text": "-gdb-set disassembly-flavor intel",
+          "ignoreFailures": true
+        }
+      ]
+    },
+    {
+      "name": "clientSocket Linux",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build-debug/clientsocket/clientsocket",
       "args": ["desktop-gilmar", "8080", "clientSocket.log"],
       "cwd": "${workspaceFolder}/build-debug/clientsocket",
       "MIMode": "gdb",
