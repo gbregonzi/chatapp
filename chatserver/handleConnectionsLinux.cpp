@@ -1,3 +1,7 @@
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <memory>
+
 #include "handleConnectionsLinux.h"
 
 constexpr int WAITING_TIME = -1;
@@ -5,9 +9,12 @@ constexpr int WAITING_TIME = -1;
 HandleConnectionsLinux::HandleConnectionsLinux(Logger &logger, const string& serverName, const string& portNumber):
                         ChatServer(logger, serverName, portNumber){
     m_epollFd = epoll_create1(0);
-    ev.events = EPOLLIN;
-    ev.data.fd = m_SockfdListener;
-    epoll_ctl(m_epollFd, EPOLL_CTL_ADD, m_SockfdListener, &ev);
+    struct epoll_event event;
+    event.events = EPOLLIN;
+    event.data.fd = m_SockfdListener;
+    epoll_ctl(m_epollFd, EPOLL_CTL_ADD, m_SockfdListener, &event);
+    size_t threadCount = thread::hardware_concurrency();
+    threadPool = make_unique<ThreadPool>(threadCount); 
 }
 
 HandleConnectionsLinux::~HandleConnectionsLinux(){
@@ -18,34 +25,47 @@ HandleConnectionsLinux::~HandleConnectionsLinux(){
     m_Logger.setDone(true);
 }
 
-void HandleConnectionsLinux::workerThread(HANDLE iocp){
-
-}
-
-void HandleConnectionsLinux::associateSocket(uint64_t clientSocket){
-
+void HandleConnectionsLinux::handleClient(int clientFd){
+    char buffer[BUFFER_SIZE];
+    int bytesRead = read(clientFd, buffer, sizeof(buffer));
+    if (bytesRead > 0) {
+        for (auto& sd:m_ClientSockets){
+            if (sd != clientFd){
+                lock_guard lock(m_Mutex);
+                buffer[bytesRead] = 0x0;
+                m_BroadcastMessageQueue.emplace(make_pair(sd, buffer));    
+            }    
+        }
+    }
+    if (bytesRead == 0){
+        epoll_ctl(m_epollFd, EPOLL_CTL_DEL, clientFd, nullptr);
+        m_Logger.log(LogLevel::Info, "Client desconnected");
+        closeSocket(clientFd);
+    }   
 }
    
 void HandleConnectionsLinux::acceptConnections(){
     while (getIsConnected()) {
-        int nfds = epoll_wait(m_epollFd, events, MAX_EVENTS, WAITING_TIME);
+        int nfds = epoll_wait(m_epollFd, m_Events, MAX_QUEUE_CONNECTINON, WAITING_TIME);
+        struct epoll_event event;
+        int clientFd;
         for (int i = 0; i < nfds; ++i) {
-            if (events[i].data.fd == m_SockfdListener) {
-                int client_fd = accept(m_SockfdListener, NULL, NULL);
-                ev.events = EPOLLIN;
-                ev.data.fd = client_fd;
-                epoll_ctl(m_epollFd, EPOLL_CTL_ADD, client_fd, &ev);
+            if (m_Events[i].data.fd == m_SockfdListener) {
+                clientFd = accept(m_SockfdListener, NULL, NULL);
+                event.events = EPOLLIN;
+                event.data.fd = clientFd;
+                epoll_ctl(m_epollFd, EPOLL_CTL_ADD, clientFd, &event);
             } else {
-                char buffer[1024] = {0};
-                int bytes = read(events[i].data.fd, buffer, sizeof(buffer));
-                if (bytes <= 0) {
-                    close(events[i].data.fd);
-                } else {
-                    send(events[i].data.fd, buffer, bytes, 0); // Echo back
-                }
+                clientFd = m_Events[i].data.fd;
+                threadPool->enqueue([&clientFd, this] {handleClient(clientFd); });
             }
         }
     }
+}
+
+int HandleConnectionsLinux::makeSocketNonBlocking(int sfd) {
+    int flags = fcntl(sfd, F_GETFL, 0);
+    return fcntl(sfd, F_SETFL, flags | O_NONBLOCK);
 }
 
     

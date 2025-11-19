@@ -5,6 +5,10 @@
 #include <future>   
 #include <atomic>
 #include <functional>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
+
 #include "threadSafeQueue.h"
 #include "functionWrapper.h"
 
@@ -26,7 +30,7 @@ struct joinableThread {
 	}
 };
 
-class threadPool {
+class threadPool_ {
 private:
     atomic_bool m_Done{ false };
 	threadSafeQueue<functionWrapper> m_WorkQueue; 
@@ -36,11 +40,11 @@ private:
 	void WorkerThread();
 
     public:
-	threadPool(vector<thread>& threads);
-	~threadPool();
+	threadPool_(vector<thread>& threads);
+	~threadPool_();
 
 	template<typename Function_Type>
-	future<invoke_result_t<Function_Type>> submit(Function_Type f) { // Accepts a std::function as a task
+	future<invoke_result_t<Function_Type>> submit(Function_Type f) { // Accepts a function as a task
 		using result_type = invoke_result_t<Function_Type>;
 		packaged_task<result_type()> task(move(f)); // Create a packaged task
 		future<result_type> res = task.get_future(); // Get the future from the packaged task
@@ -62,3 +66,18 @@ private:
 
 	void runPendingTasks();
 };
+
+class ThreadPool {
+public:
+    ThreadPool(size_t numThreads);
+    ~ThreadPool();
+    void enqueue(function<void()> task);
+
+private:
+    vector<thread> workers;
+    queue<function<void()>> tasks;
+    mutex queueMutex;
+    condition_variable condition;
+    bool stop;
+};
+

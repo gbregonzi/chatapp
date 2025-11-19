@@ -35,8 +35,8 @@ else()
     message(STATUS "Compiling for Linux")
     set(CMAKE_PREFIX_PATH "../../../vcpkg/installed/x64-windows/share/fmt")
     find_package(fmt CONFIG REQUIRED)
-    list(APPEND SOURCES handleConnectionsLinux.cpp)
-    list(APPEND HEADERS handleConnectionsLinux.h)
+    list(APPEND SOURCES handleConnectionsLinux.cpp ../utils/threadPool.cpp)
+    list(APPEND HEADERS handleConnectionsLinux.h ../utils/threadPool.h)
 endif()    
 
 
