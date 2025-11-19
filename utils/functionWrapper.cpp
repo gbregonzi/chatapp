@@ -1,6 +1,4 @@
 
-#include <memory>
-#include <utility>
 #include "functionWrapper.h"
 using namespace std;
 

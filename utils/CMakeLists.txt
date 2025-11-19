@@ -7,16 +7,28 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(CTest)
 enable_testing()
 
-# Add all .cpp files in the current directory
-file(GLOB SOURCES "*.cpp")
+# Explicitly list all source files
+set(SOURCES
+    functionWrapper.cpp
+    threadPool.cpp
+    logger.cpp
+)
 
-add_library(functionWrapper STATIC functionWrapper.cpp functionWrapper.h)
-add_library(threadPool STATIC threadPool.h threadPool.cpp functionWrapper.cpp functionWrapper.h)
-add_library(logger STATIC logger.cpp logger.h)
+# List headers separately (optional, for IDE visibility)
+set(HEADERS
+    functionWrapper.h
+    threadSafeQueue.h
+    threadPool.h
+    logger.h
+)
 
-target_include_directories(functionWrapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(threadPool PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(logger PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+add_library(functionWrapper STATIC ${SOURCES} ${HEADERS})
+add_library(threadPool STATIC ${SOURCES} ${HEADERS})
+add_library(logger STATIC ${SOURCES} ${HEADERS})
 
-# Optionally, add tests here if needed
+#target_include_directories(functionWrapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+#target_include_directories(threadPool PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+#target_include_directories(logger PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+
 

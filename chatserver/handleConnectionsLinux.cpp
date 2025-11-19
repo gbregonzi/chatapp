@@ -13,6 +13,7 @@ HandleConnectionsLinux::HandleConnectionsLinux(Logger &logger, const string& ser
     event.events = EPOLLIN;
     event.data.fd = m_SockfdListener;
     epoll_ctl(m_epollFd, EPOLL_CTL_ADD, m_SockfdListener, &event);
+    makeSocketNonBlocking(m_SockfdListener);
     size_t threadCount = thread::hardware_concurrency();
     threadPool = make_unique<ThreadPool>(threadCount); 
 }
@@ -57,6 +58,7 @@ void HandleConnectionsLinux::acceptConnections(){
                 epoll_ctl(m_epollFd, EPOLL_CTL_ADD, clientFd, &event);
             } else {
                 clientFd = m_Events[i].data.fd;
+                makeSocketNonBlocking(clientFd);
                 threadPool->enqueue([&clientFd, this] {handleClient(clientFd); });
             }
         }

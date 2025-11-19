@@ -1,5 +1,5 @@
 #include "threadPool.h"
-
+#include "functionWrapper.h"
 
 threadPool_::threadPool_(vector<thread> &threads) : m_Joiner(threads) {
 	int const num_threads = thread::hardware_concurrency();// Get the number of hardware threads available

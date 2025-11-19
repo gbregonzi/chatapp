@@ -18,13 +18,20 @@ set(HEADERS
     ../utils/logger.h
 )
 
+if (UNIX)
+    set(CMAKE_PREFIX_PATH "../../../vcpkg/installed/x64-windows/share/fmt")
+    find_package(fmt CONFIG REQUIRED)
+endif()
+
 add_executable(clientSocket ${SOURCES} ${HEADERS})
 set_property(TARGET clientSocket PROPERTY CMAKE_CXX_STANDARD 20)
 
 if(WIN32)
     # Link Winsock library on Windows
+    message(STATUS "Compiling for Windows")
     target_link_libraries(clientSocket ws2_32)
 else()
     # Link pthread library on Unix-like systems
-    target_link_libraries(clientSocket pthread) 
+    message(STATUS "Compiling for Linux")
+    target_link_libraries(clientSocket pthread fmt::fmt) 
 endif()
