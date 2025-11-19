@@ -16,13 +16,16 @@ void sendMessageThread(ClientSocket& clientSocket, atomic<bool>& chatActive)
         string message;
         cout << "Enter message to send (type 'quit' to exit): ";
         getline(cin, message);
-        int bytesSent = clientSocket.sendMessage(message); 
-        if (message == "quit" || bytesSent == FAILURE)
+        if (message == "quit")
         {
-            chatActive.store(false);
+            break;
+        }
+        int bytesSent = clientSocket.sendMessage(message); 
+        if (bytesSent == FAILURE){
             break;
         }
     }
+    chatActive.store(false);
 }
 
 void startSendMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
@@ -35,7 +38,7 @@ void readMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
     while (chatActive.load())
     {
         string message;
-        ssize_t bytesRead = clientcocket.readMessage(message); 
+        size_t bytesRead = clientcocket.readMessage(message); 
         if (bytesRead == FAILURE || message == "quit")
         {
             chatActive.store(false);
