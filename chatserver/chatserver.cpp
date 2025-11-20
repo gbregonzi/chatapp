@@ -50,7 +50,7 @@ bool ChatServer::createListner(){
             continue;
         }
         
-        char optval{1};
+        int optval{1};
         int optlen{sizeof(optval)};
         if (setsockopt(m_SockfdListener, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) < 0)
         {
@@ -88,8 +88,7 @@ bool ChatServer::createListner(){
         m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
         return false;
     }
-    m_Logger.log(LogLevel::Info, "{}:Server name:{} Port:{}",__func__, hostName, service);
-    m_Logger.log(LogLevel::Info, "{}:Using IOCP for handling connections.",__func__);
+    m_Logger.log(LogLevel::Info, "{}:Server name:{} Port:{}",__func__, hostName, m_PortNumber);
     
     return true; 
 }

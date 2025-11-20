@@ -15,6 +15,7 @@ HandleConnectionsLinux::HandleConnectionsLinux(Logger &logger, const string& ser
     epoll_ctl(m_epollFd, EPOLL_CTL_ADD, m_SockfdListener, &event);
     makeSocketNonBlocking(m_SockfdListener);
     size_t threadCount = thread::hardware_concurrency();
+    m_Logger.log(LogLevel::Info, "{}:Starting thread poll", __func__);
     threadPool = make_unique<ThreadPool>(threadCount); 
 }
 
@@ -40,12 +41,14 @@ void HandleConnectionsLinux::handleClient(int clientFd){
     }
     if (bytesRead == 0){
         epoll_ctl(m_epollFd, EPOLL_CTL_DEL, clientFd, nullptr);
-        m_Logger.log(LogLevel::Info, "Client desconnected");
+        m_Logger.log(LogLevel::Info, "{}:Client desconnected", __func__);
         closeSocket(clientFd);
     }   
 }
    
 void HandleConnectionsLinux::acceptConnections(){
+    m_Logger.log(LogLevel::Info, "{}:Accept Connections start", __func__);
+
     while (getIsConnected()) {
         int nfds = epoll_wait(m_epollFd, m_Events, MAX_QUEUE_CONNECTINON, WAITING_TIME);
         struct epoll_event event;
@@ -58,7 +61,9 @@ void HandleConnectionsLinux::acceptConnections(){
                 epoll_ctl(m_epollFd, EPOLL_CTL_ADD, clientFd, &event);
             } else {
                 clientFd = m_Events[i].data.fd;
+                getClientIP(clientFd);
                 makeSocketNonBlocking(clientFd);
+
                 threadPool->enqueue([&clientFd, this] {handleClient(clientFd); });
             }
         }
