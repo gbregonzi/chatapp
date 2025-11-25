@@ -10,7 +10,7 @@ HandleConnectionsLinux::HandleConnectionsLinux(Logger &logger, const string& ser
                         ChatServer(logger, serverName, portNumber){
     m_epollFd = epoll_create1(0);
     struct epoll_event event;
-    event.events = EPOLLIN;
+    event.events = EPOLLIN | EPOLLOUT | EPOLLET;
     event.data.fd = m_SockfdListener;
     epoll_ctl(m_epollFd, EPOLL_CTL_ADD, m_SockfdListener, &event);
     makeSocketNonBlocking(m_SockfdListener);
@@ -51,8 +51,13 @@ void HandleConnectionsLinux::acceptConnections(){
 
     while (getIsConnected()) {
         int nfds = epoll_wait(m_epollFd, m_Events, MAX_QUEUE_CONNECTINON, WAITING_TIME);
+        if (nfds == -1) {
+            m_Logger.log(LogLevel::Error, "{}:Failed to wait for events.", __func__);
+            break;
+        }
         struct epoll_event event;
         int clientFd;
+
         for (int i = 0; i < nfds; ++i) {
             if (m_Events[i].data.fd == m_SockfdListener) {
                 clientFd = accept(m_SockfdListener, NULL, NULL);
@@ -73,6 +78,9 @@ void HandleConnectionsLinux::acceptConnections(){
             }
         }
     }
+    close(epollFd);
+    close (m_SockfdListener);
+    m_Logger.log(LogLevel::Info, "{}:Stopped accepting connections.", __func__);
 }
 
 int HandleConnectionsLinux::makeSocketNonBlocking(int sfd) {
