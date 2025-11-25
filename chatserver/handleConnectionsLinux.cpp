@@ -31,9 +31,9 @@ void HandleConnectionsLinux::handleClient(int clientFd){
     char buffer[BUFFER_SIZE];
     int bytesRead = read(clientFd, buffer, sizeof(buffer));
     if (bytesRead > 0) {
+        lock_guard lock(m_Mutex);
         for (auto& sd:m_ClientSockets){
             if (sd != clientFd){
-                lock_guard lock(m_Mutex);
                 buffer[bytesRead] = 0x0;
                 m_BroadcastMessageQueue.emplace(make_pair(sd, buffer));    
             }    
@@ -63,6 +63,11 @@ void HandleConnectionsLinux::acceptConnections(){
                 clientFd = m_Events[i].data.fd;
                 getClientIP(clientFd);
                 makeSocketNonBlocking(clientFd);
+                m_Logger.log(LogLevel::Info, "{}:New client connected. Socket fd: {}", __func__, clientFd); 
+                {
+                    lock_guard lock(m_Mutex);   
+                    m_ClientSockets.emplace(clientFd);
+                }
 
                 threadPool->enqueue([&clientFd, this] {handleClient(clientFd); });
             }
