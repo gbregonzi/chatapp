@@ -74,11 +74,11 @@ void HandleConnectionsLinux::acceptConnections(){
                     m_ClientSockets.emplace(clientFd);
                 }
 
-                threadPool->enqueue([&clientFd, this] {handleClient(clientFd); });
+                threadPool->enqueue([clientFd, this] {handleClient(clientFd); });
             }
         }
     }
-    close(epollFd);
+    close(m_epollFd);
     close (m_SockfdListener);
     m_Logger.log(LogLevel::Info, "{}:Stopped accepting connections.", __func__);
 }

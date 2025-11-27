@@ -159,7 +159,7 @@ void ChatServer::threadBroadcastMessage() {
 
     m_BroadcastThread = jthread([this](stop_token token) {
         while (!token.stop_requested()) {
-            pair<int, string> front;
+            pair<int, string> front{};
             {
                 lock_guard lock(m_Mutex);
                 if (!m_BroadcastMessageQueue.empty()) {
