@@ -39,8 +39,10 @@ class ChatServer {
     protected:
 #ifdef _WIN32
         SOCKET m_SockfdListener;
+        char optval{1};
 #else
         int m_SockfdListener;
+        int optval{1};
 #endif
         string m_ServerName;
         string m_PortNumber;

@@ -50,7 +50,6 @@ bool ChatServer::createListner(){
             continue;
         }
         
-        int optval{1};
         int optlen{sizeof(optval)};
         if (setsockopt(m_SockfdListener, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) < 0)
         {
