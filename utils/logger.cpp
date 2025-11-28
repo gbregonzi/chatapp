@@ -27,11 +27,12 @@ Logger::Logger(const string& fileName, size_t maxLogSize) : m_MaxLogSize(maxLogS
 		processingMessages(); // Start the processing thread
 	}
 	else {
-		cout << "Failed to open log file: " << m_path.filename().string() << "\n";
+		cout << __func__ << ":Failed to open log file: " << m_path.filename().string() << "\n";
 	}
 }
 
 Logger::~Logger() {
+	cout << __func__ << ":Destroying Logger..." << "\n";
 	stopProcessing(); // Ensure we stop processing when the logger is destroyed
 }
 
@@ -66,12 +67,12 @@ bool Logger::eof() {
 }
 
 bool Logger::renameLogFile() {
-	cout << "Renaming Log file..." << "\n";
+	cout << __func__ << ":Renaming Log file..." << "\n";
 	if (isOpen()) {
 		closeFile(); // Close the file before renaming
 	}
 	if(!exists(m_path)) {
-		cout << "There is no log file to rename:" << m_path << "\n";
+		cout << __func__ << ":There is no log file to rename:" << m_path << "\n";
 		return true;
 	}
 	auto now = chrono::system_clock::now();
@@ -100,16 +101,16 @@ bool Logger::renameLogFile() {
 		m_path += extension; // Restore the original path with extension
 		rename(m_path, newFileName);
 		if (!exists(newFileName)) {
-			cout << "Failed to rename log file to: " << newFileName << "\n";
+			cout << __func__ << ":Failed to rename log file to: " << newFileName << "\n";
 		}
 		else {
-			cout << "Log file renamed to: " << newFileName << "\n";
-			cout << "Start new Log File at: " << m_path.string() << "\n";
+			cout << __func__ << ":Log file renamed to: " << newFileName << "\n";
+			cout << __func__ << ":Start new Log File at: " << m_path.string() << "\n";
 		}
 	}
 	catch(const exception &ex){
-		cout << "Failed to rename log file: " << m_path << "\n"; 
-		cerr << "Error:" << ex.what() << "\n";
+		cout << __func__ << ":Failed to rename log file: " << m_path << "\n"; 
+		cerr << __func__ << ":Error:" << ex.what() << "\n";
 		//cerr << "Description:" << strerror(errno) << "\n";
 		return false;
 	}
@@ -128,7 +129,7 @@ void Logger::setDone(bool done) {
 }
 
 void Logger::stopProcessing() {
-	cout << "Stopping Logger processing messages" << "\n";	
+	cout << __func__ << ":Stopping Logger processing messages" << "\n";	
 	while(!doneFlag.load())
 	{
 		{
@@ -163,18 +164,18 @@ void Logger::log(const LogLevel &logLevel, const string& message) {
     oss << "[" << put_time(&tm_buf, "%F %T") << ':' << setfill('0') << setw(3) << ms.count() << "] "
         << "[" << left << setfill(' ') << setw(7) << toString(logLevel) << "] " << message;
 
-		if (!doneFlag.load()) {
+	if (!doneFlag.load()) {
 		lock_guard lock(m_mutex);
         m_queue.emplace(oss.str());
     }
     else {
-        cout << "Logger is stopped, cannot log message: " << oss.str() << "\n";
+        cout << __func__ << ":Logger is stopped, cannot log message: " << oss.str() << "\n";
     }
 }
 
 void Logger::logError(const string_view errorMsg, int errorCode) {
 	error_code ec(errorCode, system_category());
-	wcerr << L"Error: " << errorMsg.data() << L"\nError Code(" << errorCode << L"): " << ec.message().c_str() << "\n";
+	wcerr << __func__ << L":Error: " << errorMsg.data() << L"\nError Code(" << errorCode << L"): " << ec.message().c_str() << "\n";
 }
 
 bool Logger::openFile() {
@@ -182,25 +183,25 @@ bool Logger::openFile() {
 		lock_guard Lock(m_mutex);
 		path workDir = m_path.parent_path();
 		if (!is_directory(workDir)) {
-			cout << "Creating path:" << workDir.string() << "\n";
+			cout << __func__ << ":Creating path: " << workDir.string() << "\n";
 			filesystem::create_directories(workDir);
 		}
 		if (!filesystem::exists(workDir)) {
-			cout << "Could not find path:" << workDir.string() << "\n";
+			cout << __func__ << ":Could not find path: " << workDir.string() << "\n";
 			return false;
 		}
 		os.open(m_path, ios::app | ios::binary);
 
 		if (!os.is_open()) {
-			cout << "Unable to open file:" << m_path.string() << "\n";
-			logError(string("Unable to open file:" + m_path.string()), errno);
+			cout << __func__ << ":Unable to open file: " << m_path.string() << "\n";
+			logError(string("Unable to open file: " + m_path.string()), errno);
 
 			return false;
 		}
-		cout << "Create log file at:" << m_path.string() << "\n";
+		cout << __func__ << ":Create log file at: " << m_path.string() << "\n";
 	}
 	catch (const exception& ex) {
-		cout << ex.what() << "\n";
+		cout << __func__ << ":"  << ex.what() << "\n";
 		return false;
 	}
 	return true;

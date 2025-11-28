@@ -7,10 +7,12 @@
 using namespace std;
 
 constexpr int FAILURE = -1;
-
+jthread sendThread;
+jthread readThread;
 
 void sendMessageThread(ClientSocket& clientSocket, atomic<bool>& chatActive)
 {
+    cout << "Started send message thread." << "\n";
     while (chatActive.load())
     {
         string message;
@@ -30,11 +32,13 @@ void sendMessageThread(ClientSocket& clientSocket, atomic<bool>& chatActive)
 
 void startSendMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
 {
-    jthread sendThread(sendMessageThread, ref(clientcocket), ref(chatActive));
+    sendThread = jthread(sendMessageThread, ref(clientcocket), ref(chatActive));
 }
 
 void readMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
 {
+    cout << "Started read message thread." << "\n";
+    
     while (chatActive.load())
     {
         string message;
@@ -51,12 +55,13 @@ void readMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
 
 void startReadMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
 {
-    jthread sendThread(readMessageThread, ref(clientcocket), ref(chatActive));
+    sendThread = jthread(readMessageThread, ref(clientcocket), ref(chatActive));
 }
 
 int main (int argc, char *argv[]) {
     atomic<bool> chatActive{true};
     string logFileName;
+
     if (argc != 4) {
         cerr << __func__ << ":Usage: " << argv[0] << " <server:ip> <server_port> <log_file_name>" << std::endl;
         return 1;
@@ -76,8 +81,8 @@ int main (int argc, char *argv[]) {
     ClientSocket& client = ClientSocketFactory::getInstance(server_ip, portHostName, logFileName);
     if (client.connect() == 0 && client.getLogggerFileOpen()) {
         cout << __func__ << ":Connected to server successfully!" << "\n";
-        startSendMessageThread(client, chatActive);
         startReadMessageThread(client, chatActive);
+        startSendMessageThread(client, chatActive);
     } else {
         cout << __func__ << ":Failed to connect to server." << "\n";
         chatActive.store(false);

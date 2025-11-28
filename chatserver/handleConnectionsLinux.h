@@ -29,9 +29,15 @@ public:
     // clientDt: File descriptor for the client connected
     void handleClient(int clientFd);
 
+    // createEpollInstance - Create epoll instance and setup thread pool
+    // Returns 0 on success, -1 on failure
+    int createEpollInstance();
+
     // AcceptConnections - Waiting for client connections
     void acceptConnections() override;
 
-    // 
+    // makeSocketNonBlocking - Make a socket non-blocking
+    // sfd - Socket file descriptor to be made non-blocking
+    // Returns 0 on success, -1 on failure
     int makeSocketNonBlocking(int sfd);
 };

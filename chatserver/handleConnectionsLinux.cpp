@@ -5,6 +5,8 @@
 #include "handleConnectionsLinux.h"
 
 constexpr int WAITING_TIME = -1;
+constexpr int SUCCESS = 0;
+constexpr int FAILURE = -1;
 
 HandleConnectionsLinux::HandleConnectionsLinux(Logger &logger, const string& serverName, const string& portNumber):
                         ChatServer(logger, serverName, portNumber){
@@ -45,9 +47,38 @@ void HandleConnectionsLinux::handleClient(int clientFd){
         closeSocket(clientFd);
     }   
 }
-   
+
+int HandleConnectionsLinux::createEpollInstance(){
+    m_epollFd = epoll_create1(0);
+    if (m_epollFd == -1) {
+        m_Logger.log(LogLevel::Error, "{}:Failed to create epoll file descriptor.", __func__);
+        setIsConnected(false);
+        return FAILURE;
+    }   
+    struct epoll_event event;
+    event.events = EPOLLIN;// | EPOLLOUT | EPOLLET;
+    event.data.fd = m_SockfdListener;
+    if (epoll_ctl(m_epollFd, EPOLL_CTL_ADD, m_SockfdListener, &event) == FAILURE) {
+        m_Logger.log(LogLevel::Error, "{}:Failed to add listener socket to epoll.", __func__);
+        setIsConnected(false);
+        close(m_epollFd);
+        closeSocket(m_SockfdListener);
+        return FAILURE;
+    }
+    makeSocketNonBlocking(m_SockfdListener);
+    size_t threadCount = thread::hardware_concurrency();
+    m_Logger.log(LogLevel::Info, "{}:Starting thread poll", __func__);
+    threadPool = make_unique<ThreadPool>(threadCount); 
+    return SUCCESS;
+}
+
 void HandleConnectionsLinux::acceptConnections(){
     m_Logger.log(LogLevel::Info, "{}:Accept Connections start", __func__);
+    if (createEpollInstance() == FAILURE){
+
+        m_Logger.log(LogLevel::Error, "{}:Epoll instance creation failed.", __func__);
+        return;
+    }
 
     while (getIsConnected()) {
         int nfds = epoll_wait(m_epollFd, m_Events, MAX_QUEUE_CONNECTINON, WAITING_TIME);
@@ -68,7 +99,7 @@ void HandleConnectionsLinux::acceptConnections(){
                 clientFd = m_Events[i].data.fd;
                 getClientIP(clientFd);
                 makeSocketNonBlocking(clientFd);
-                m_Logger.log(LogLevel::Info, "{}:New client connected. Socket fd: {}", __func__, clientFd); 
+                m_Logger.log(LogLevel::Info, "{}:Client connected. Socket fd: {}", __func__, clientFd); 
                 {
                     lock_guard lock(m_Mutex);   
                     m_ClientSockets.emplace(clientFd);

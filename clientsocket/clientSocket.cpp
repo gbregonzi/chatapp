@@ -64,6 +64,7 @@ int ClientSocket::connect()
             return -1;
         }
     }
+    m_Logger.log(LogLevel::Info, "{}:Connected", __func__);
     m_chatActive.store(true); // Mark chat as active
     return 0;
 }
@@ -103,6 +104,7 @@ size_t ClientSocket::sendMessage(const string& message)
         m_Logger.log(LogLevel::Error,"{}:Error sending data to server.",__func__);
         return -1;
     }
+    m_Logger.log(LogLevel::Debug, "{}:Sent to server:{}",__func__, message);
     return bytes_sent;
 }
 
