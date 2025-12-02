@@ -48,10 +48,21 @@ class ChatServer {
         string m_PortNumber;
     private:
         atomic<bool> m_IsConnected{false};
+        condition_variable m_Cv;
+        mutex m_BroadcastMutex;
+        
+        // sendMessage - sends a message to the specified client socket
+        // sd: the socket descriptor of the client
+        // message: the message to be sent
         bool sendMessage(int sd, const string_view message);
 
         // threadBroadcastMessage - processes messages from the read message queue
         void threadBroadcastMessage();
+        // sendProdcastMessage - continuously sends broadcast messages to a client
+        // sd: the socket descriptor of the client
+        // message: the message to be sent
+        void sendProdcastMessage(int sd, const string& message);
+
     protected:
         jthread m_BroadcastThread;
         queue<pair<int, string>> m_BroadcastMessageQueue;
@@ -66,6 +77,9 @@ class ChatServer {
         // portNumber: the port number to bind the server socket
         ChatServer(Logger &logger, const string& serverName, const string& portNumber);
         
+        // Destructor
+        ~ChatServer();
+
         // getClientIP - retrieves and prints the connected client's IP address and port
         // sd: the socket descriptor of the connected client
         // Returns true if successful, false otherwise
@@ -93,4 +107,9 @@ class ChatServer {
         // getClientSockets - returns the set of currently connected client sockets 
         // Returns an unordered_set of client socket descriptors
         unordered_set<int> getClientSockets() const;
+
+        // addProadcastMessage - adds a message to the broadcast message queue
+        // sd: the socket descriptor of the client to send the message to
+        // message: the message to be broadcasted
+        void addProadcastMessage(int sd, const string& message);
 };

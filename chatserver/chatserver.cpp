@@ -154,33 +154,88 @@ bool ChatServer::sendMessage(int sd, const string_view message)
 }
 
 void ChatServer::threadBroadcastMessage() {
-    m_Logger.log(LogLevel::Debug, "{}:Broadcast thread started.", __func__);
+    m_Logger.log(LogLevel::Debug, "{}: Broadcast thread started.", __func__);
 
     m_BroadcastThread = jthread([this](stop_token token) {
         while (!token.stop_requested()) {
-            pair<int, string> front{};
+            pair<int, string> front;
+
             {
-                lock_guard lock(m_Mutex);
-                if (!m_BroadcastMessageQueue.empty()) {
-                    front = m_BroadcastMessageQueue.front();
-                    m_BroadcastMessageQueue.pop();
+                std::unique_lock lock(m_BroadcastMutex);
+                // Wait until either a message arrives or stop is requested
+                m_Cv.wait(lock, [&] {
+                    return !m_BroadcastMessageQueue.empty() || token.stop_requested();
+                });
+
+                if (token.stop_requested()){
+                    break;
                 }
+                    
+                front = move(m_BroadcastMessageQueue.front());
+                m_BroadcastMessageQueue.pop();
             }
-            
+
             if (front.first > 0) {
                 int sd = front.first;
-                const string& message = front.second;
-                if (sendMessage(sd, message)) {
-                    m_Logger.log(LogLevel::Debug, "{}:sd:{} Sent message to client:{}",__func__, sd, message);
-                } else {
-                    m_Logger.log(LogLevel::Error, "{}:Failed to send message to client:{}", __func__, sd);
-                }
+                string message = move(front.second); 
+                sendProdcastMessage(sd, message);
             }
-            this_thread::yield;
         }
-        m_Logger.log(LogLevel::Debug, "{}:Broadcast thread stoped", __func__);
+        m_Logger.log(LogLevel::Debug, "{}: Broadcast thread stopped", __func__);
     });
 }
+
+void ChatServer::sendProdcastMessage(int sd, const string& message){
+    int tries = 0;
+    while(tries < 5)
+    {
+        if (sendMessage(sd, message)) {
+            m_Logger.log(LogLevel::Debug, "{}: sd:{} Sent message to client:{}", __func__, sd, message);
+            break;
+        } else {
+            m_Logger.log(LogLevel::Error, "{}: Failed to send message to client:{}", __func__, sd);
+            m_Logger.log(LogLevel::Info, "{}: Trying again in 0,5 seconds...", __func__);
+            this_thread::sleep_for(chrono::milliseconds(500));
+        }
+        tries++;
+    }
+}
+void ChatServer::addProadcastMessage(int sd, const string& message) {
+    {
+        lock_guard lock(m_BroadcastMutex);
+        m_BroadcastMessageQueue.emplace(make_pair(sd, message));
+    }
+    m_Cv.notify_one();
+}   
+
+// void ChatServer::threadBroadcastMessage() {
+//     m_Logger.log(LogLevel::Debug, "{}:Broadcast thread started.", __func__);
+
+//     m_BroadcastThread = jthread([this](stop_token token) {
+//         while (!token.stop_requested()) {
+//             pair<int, string> front{};
+//             {
+//                 lock_guard lock(m_Mutex);
+//                 if (!m_BroadcastMessageQueue.empty()) {
+//                     front = m_BroadcastMessageQueue.front();
+//                     m_BroadcastMessageQueue.pop();
+//                 }
+//             }
+            
+//             if (front.first > 0) {
+//                 int sd = front.first;
+//                 const string& message = front.second;
+//                 if (sendMessage(sd, message)) {
+//                     m_Logger.log(LogLevel::Debug, "{}:sd:{} Sent message to client:{}",__func__, sd, message);
+//                 } else {
+//                     m_Logger.log(LogLevel::Error, "{}:Failed to send message to client:{}", __func__, sd);
+//                 }
+//             }
+//             this_thread::yield;
+//         }
+//         m_Logger.log(LogLevel::Debug, "{}:Broadcast thread stoped", __func__);
+//     });
+// }
 
 void ChatServer::closeSocket(int sd)
 {
@@ -194,3 +249,10 @@ unordered_set<int> ChatServer::getClientSockets() const {
     return m_ClientSockets;
 }
 
+ChatServer::~ChatServer(){
+    close(m_SockfdListener);
+    setIsConnected(false);
+    m_BroadcastThread.request_stop();
+    m_Logger.log(LogLevel::Debug, "{}:ChatServer class destroyed.",__func__);
+    m_Logger.setDone(true);
+}

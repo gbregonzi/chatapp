@@ -30,6 +30,9 @@ HandleConnectionsLinux::~HandleConnectionsLinux(){
 }
 
 void HandleConnectionsLinux::handleClient(int clientFd){
+    stringstream threadId;
+    threadId << this_thread::get_id();
+    m_Logger.log(LogLevel::Debug, "{}:Thread ID: {}", __func__, threadId.str());
     char buffer[BUFFER_SIZE];
     int bytesRead = read(clientFd, buffer, sizeof(buffer));
     if (bytesRead > 0) {
@@ -37,7 +40,7 @@ void HandleConnectionsLinux::handleClient(int clientFd){
         for (auto& sd:m_ClientSockets){
             if (sd != clientFd){
                 buffer[bytesRead] = 0x0;
-                m_BroadcastMessageQueue.emplace(make_pair(sd, buffer));    
+                addProadcastMessage(sd, buffer);
             }    
         }
     }
@@ -75,7 +78,6 @@ int HandleConnectionsLinux::createEpollInstance(){
 void HandleConnectionsLinux::acceptConnections(){
     m_Logger.log(LogLevel::Info, "{}:Accept Connections start", __func__);
     if (createEpollInstance() == FAILURE){
-
         m_Logger.log(LogLevel::Error, "{}:Epoll instance creation failed.", __func__);
         return;
     }
@@ -110,7 +112,6 @@ void HandleConnectionsLinux::acceptConnections(){
         }
     }
     close(m_epollFd);
-    close (m_SockfdListener);
     m_Logger.log(LogLevel::Info, "{}:Stopped accepting connections.", __func__);
 }
 
