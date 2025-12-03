@@ -15,6 +15,8 @@
 #endif
 
 #include "clientSocket.h"
+#include <cerrno>
+#include <chrono>
 
 
 ClientSocket::ClientSocket(Logger& logger, const string& ip, const char* portHostName) : 
@@ -66,10 +68,23 @@ int ClientSocket::connect()
     }
     m_Logger.log(LogLevel::Info, "{}:Connected", __func__);
     m_chatActive.store(true); // Mark chat as active
+    // Start background reader thread so reads don't block the caller.
+    //m_ReaderThread = jthread(&ClientSocket::readerLoop, this);
     return 0;
 }
 
 size_t ClientSocket::readMessage(string &message){
+    // Non-blocking: try to pop a message from the incoming queue populated
+    // by the background reader thread. Returns 0 when no message is available.
+    string msg;
+    if (m_IncomingQueue.tryPop(msg)) {
+        message = move(msg);
+        return message.size();
+    }
+    return 0; // no message available right now
+}
+
+size_t ClientSocket::readMessage_old(string &message){
     char buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     size_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
@@ -110,8 +125,15 @@ size_t ClientSocket::sendMessage(const string& message)
 
 void ClientSocket::SocketClosed()
 {
-    m_Logger.log(LogLevel::Info, "{}:Disconnecting from:{}:{}...",__func__, m_ip, m_PortHostName);
-    close(m_sockfd);
+    if (m_sockfd >= 0) {
+        m_Logger.log(LogLevel::Info, "{}:Disconnecting from:{}:{}...",__func__, m_ip, m_PortHostName);
+        // Stop reader thread first
+        m_chatActive.store(false);
+        // Shutdown the socket to wake any blocking recv in reader thread
+        shutdown(m_sockfd, SHUT_RDWR);
+        close(m_sockfd);
+        m_sockfd = -1;
+    }
 }
 ClientSocket::~ClientSocket()
 {
@@ -119,6 +141,51 @@ ClientSocket::~ClientSocket()
     WSACleanup();
 #endif
     m_Logger.log(LogLevel::Info,"{}:ClientSocket for:{}:{} destroyed.",__func__, m_ip, m_PortHostName);
+    // Ensure reader thread stopped
+    m_chatActive.store(false);
+    if (m_sockfd >= 0) {
+        shutdown(m_sockfd, SHUT_RDWR);
+        close(m_sockfd);
+        m_sockfd = -1;
+    }
+
+}
+
+void ClientSocket::readerLoop()
+{
+    m_Logger.log(LogLevel::Debug, "{}:Reader thread started", __func__);
+    constexpr size_t BUFFER_SIZE = 1024;
+    char buffer[BUFFER_SIZE];
+    while (m_chatActive.load()) {
+        memset(buffer, 0, sizeof(buffer));
+        ssize_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_received > 0) {
+            buffer[bytes_received] = '\0';
+            m_Logger.log(LogLevel::Debug, "{}:Received from server:{}", __func__, buffer);
+            m_IncomingQueue.push(string(buffer));
+        }
+        else if (bytes_received == 0) {
+            m_Logger.log(LogLevel::Info, "{}:Server closed the connection.", __func__);
+            m_chatActive.store(false);
+            break;
+        }
+        else {
+            // error
+            int err = errno;
+            if (err == EINTR) {
+                continue; // interrupted, retry
+            }
+            if (err == EAGAIN || err == EWOULDBLOCK) {
+                // no data available on non-blocking socket - sleep briefly
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                continue;
+            }
+            m_Logger.log(LogLevel::Error, "{}:Error in recv():{}", __func__, strerror(err));
+            m_chatActive.store(false);
+            break;
+        }
+    }
+    m_Logger.log(LogLevel::Debug, "{}:Reader thread exiting", __func__);
 }
 
 void ClientSocket::logErrorMessage(int errorCode)

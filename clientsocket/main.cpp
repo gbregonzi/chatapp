@@ -27,7 +27,9 @@ void sendMessageThread(ClientSocket& clientSocket, atomic<bool>& chatActive)
             break;
         }
     }
+    cout << "Exiting send message thread." << "\n"; 
     chatActive.store(false);
+    clientSocket.SocketClosed();
 }
 
 void startSendMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
@@ -42,20 +44,21 @@ void readMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
     while (chatActive.load())
     {
         string message;
-        size_t bytesRead = clientcocket.readMessage(message); 
+        size_t bytesRead = clientcocket.readMessage_old(message); 
         if (bytesRead == FAILURE || message == "quit")
         {
             chatActive.store(false);
             break;
         }
     }
-    
+    cout << "Exiting read message thread." << "\n"; 
+    chatActive.store(false);
     clientcocket.SocketClosed();
 }
 
 void startReadMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
 {
-    sendThread = jthread(readMessageThread, ref(clientcocket), ref(chatActive));
+    readThread = jthread(readMessageThread, ref(clientcocket), ref(chatActive));
 }
 
 int main (int argc, char *argv[]) {
@@ -91,6 +94,6 @@ int main (int argc, char *argv[]) {
     while(chatActive.load()) {
         this_thread::sleep_for(chrono::milliseconds(100));
     }   
-
+    cout << __func__ << ":Chat ended. Exiting program." << "\n";
     return 0;
 }

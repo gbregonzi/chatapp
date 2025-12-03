@@ -4,6 +4,10 @@
 #include <string>
 //#include <unistd.h>
 #include <atomic>
+#include <thread>
+#include <memory>
+#include <mutex>
+#include "../utils/threadSafeQueue.h"
 #ifdef _WIN32
     #include <winsock2.h>
 #else
@@ -19,6 +23,9 @@ private:
     const char* m_PortHostName;
     int m_sockfd;    
     atomic<bool> m_chatActive{false}; // Flag to control chat activity
+    // Incoming message queue and reader thread to avoid blocking reads
+    threadSafeQueue<string> m_IncomingQueue;
+    jthread m_ReaderThread;
     Logger& m_Logger;    
 public:
     // Constructor
@@ -50,6 +57,10 @@ public:
     // message - is output parameter to hold the received message
     // returns number of bytes read, or -1 on error/disconnection
     size_t readMessage(string &message);
+    size_t readMessage_old(string &message);
+
+    // internal reader loop run on a background thread
+    void readerLoop();
 
     // logErrorMessage - prints error code and description
     // errorCode: the error code to be printed

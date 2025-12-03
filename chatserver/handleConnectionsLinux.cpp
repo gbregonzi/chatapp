@@ -97,15 +97,15 @@ void HandleConnectionsLinux::acceptConnections(){
                 event.events = EPOLLIN;
                 event.data.fd = clientFd;
                 epoll_ctl(m_epollFd, EPOLL_CTL_ADD, clientFd, &event);
-            } else {
-                clientFd = m_Events[i].data.fd;
-                getClientIP(clientFd);
-                makeSocketNonBlocking(clientFd);
                 m_Logger.log(LogLevel::Info, "{}:Client connected. Socket fd: {}", __func__, clientFd); 
+                makeSocketNonBlocking(clientFd);
+                getClientIP(clientFd);
                 {
                     lock_guard lock(m_Mutex);   
                     m_ClientSockets.emplace(clientFd);
                 }
+            } else {
+                clientFd = m_Events[i].data.fd;
 
                 threadPool->enqueue([clientFd, this] {handleClient(clientFd); });
             }
