@@ -72,7 +72,7 @@ bool Logger::renameLogFile() {
 		closeFile(); // Close the file before renaming
 	}
 	if(!exists(m_path)) {
-		cout << __func__ << ":There is no log file to rename:" << m_path << "\n";
+		cout << __func__ << ":There is no log file to rename:" << m_path.string() << "\n";
 		return true;
 	}
 	auto now = chrono::system_clock::now();

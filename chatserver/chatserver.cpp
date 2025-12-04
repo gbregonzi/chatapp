@@ -18,6 +18,7 @@ using namespace std;
 ChatServer::ChatServer(Logger& logger, const string& serverName, const string& port): 
                           m_Logger(logger), m_ServerName(serverName), m_PortNumber(port)   
 {
+    m_Logger.log(LogLevel::Info, "{}:ChatServer class created for {}:{}",__func__, serverName, port);
     m_IsConnected.store(true);
     threadBroadcastMessage();
 }
@@ -104,12 +105,12 @@ void ChatServer::setIsConnected(bool isConnected)
 
 void ChatServer::closeAllClientSockets() 
 {
+    m_Logger.log(LogLevel::Debug, "{}:All client sockets closed.",__func__);    
     lock_guard lock(m_Mutex);
     for (const auto &sd : m_ClientSockets){
         CLOSESOCKET(sd);
     }
     m_ClientSockets.clear();
-    m_Logger.log(LogLevel::Debug, "{}:All client sockets closed.",__func__);    
 }
 
 bool ChatServer::getClientIP(int sd )
@@ -161,7 +162,7 @@ void ChatServer::threadBroadcastMessage() {
             pair<int, string> front;
 
             {
-                std::unique_lock lock(m_BroadcastMutex);
+                unique_lock lock(m_BroadcastMutex);
                 // Wait until either a message arrives or stop is requested
                 m_Cv.wait(lock, [&] {
                     return !m_BroadcastMessageQueue.empty() || token.stop_requested();
@@ -250,7 +251,7 @@ unordered_set<int> ChatServer::getClientSockets() const {
 }
 
 ChatServer::~ChatServer(){
-    close(m_SockfdListener);
+    CLOSESOCKET(m_SockfdListener);
     setIsConnected(false);
     m_BroadcastThread.request_stop();
     m_Logger.log(LogLevel::Debug, "{}:ChatServer class destroyed.",__func__);

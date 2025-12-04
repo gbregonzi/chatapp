@@ -18,18 +18,22 @@ void sendMessageThread(ClientSocket& clientSocket, atomic<bool>& chatActive)
         string message;
         cout << "Enter message to send (type 'quit' to exit): ";
         getline(cin, message);
-        if (message == "quit")
+        if (message == "quit" || message == "q" || message.empty())
         {
             break;
         }
-        int bytesSent = clientSocket.sendMessage(message); 
-        if (bytesSent == FAILURE){
-            break;
+        string temp = message.find(",") != string::npos ? message.substr(0, message.find(",")) : "1";
+        for (int i=0; i < stoi(temp); i++)
+        {
+            int bytesSent = clientSocket.sendMessage(message.substr(temp.length() + 1, message.length() - (temp.length() + 1))); 
+            if (bytesSent == FAILURE){
+                break;
+            }
         }
     }
     cout << "Exiting send message thread." << "\n"; 
     chatActive.store(false);
-    clientSocket.SocketClosed();
+    clientSocket.socketClosed();
 }
 
 void startSendMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
@@ -44,7 +48,7 @@ void readMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
     while (chatActive.load())
     {
         string message;
-        size_t bytesRead = clientcocket.readMessage_old(message); 
+        size_t bytesRead = clientcocket.readMessage(message); 
         if (bytesRead == FAILURE || message == "quit")
         {
             chatActive.store(false);
@@ -53,7 +57,7 @@ void readMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
     }
     cout << "Exiting read message thread." << "\n"; 
     chatActive.store(false);
-    clientcocket.SocketClosed();
+    clientcocket.socketClosed();
 }
 
 void startReadMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)

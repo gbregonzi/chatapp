@@ -2,14 +2,14 @@
 
 #include <iostream>
 #include <string>
-//#include <unistd.h>
 #include <atomic>
 #include <thread>
 #include <memory>
 #include <mutex>
-#include "../utils/threadSafeQueue.h"
+//#include "../utils/threadSafeQueue.h"
 #ifdef _WIN32
     #include <winsock2.h>
+    #include <windows.h>
 #else
     #include <netinet/in.h>
 #endif
@@ -24,7 +24,7 @@ private:
     int m_sockfd;    
     atomic<bool> m_chatActive{false}; // Flag to control chat activity
     // Incoming message queue and reader thread to avoid blocking reads
-    threadSafeQueue<string> m_IncomingQueue;
+    //threadSafeQueue<string> m_IncomingQueue;
     jthread m_ReaderThread;
     Logger& m_Logger;    
 public:
@@ -35,7 +35,7 @@ public:
     int connect();
     
     //SocketClosed - close the socket connection
-    void SocketClosed();
+    void socketClosed();
     
     //Destructor
     ~ClientSocket();
@@ -56,11 +56,11 @@ public:
     // readMessage - read a single message from server
     // message - is output parameter to hold the received message
     // returns number of bytes read, or -1 on error/disconnection
+    //size_t readMessage_new(string &message);
     size_t readMessage(string &message);
-    size_t readMessage_old(string &message);
 
     // internal reader loop run on a background thread
-    void readerLoop();
+    //void readerLoop();
 
     // logErrorMessage - prints error code and description
     // errorCode: the error code to be printed

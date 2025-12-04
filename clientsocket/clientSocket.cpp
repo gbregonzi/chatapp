@@ -2,13 +2,13 @@
 #include <string>
 #include <cstring>
 #include <thread>
-#include <unistd.h>
 
 #ifdef _WIN32
     #include <winsock2.h>
     #include <ws2tcpip.h>
     #include <windows.h>
 #else
+    #include <unistd.h>
     #include <arpa/inet.h>
     #include <netdb.h>
     #include <sys/socket.h>
@@ -73,18 +73,18 @@ int ClientSocket::connect()
     return 0;
 }
 
-size_t ClientSocket::readMessage(string &message){
-    // Non-blocking: try to pop a message from the incoming queue populated
-    // by the background reader thread. Returns 0 when no message is available.
-    string msg;
-    if (m_IncomingQueue.tryPop(msg)) {
-        message = move(msg);
-        return message.size();
-    }
-    return 0; // no message available right now
-}
+// size_t ClientSocket::readMessage(string &message){
+//     // Non-blocking: try to pop a message from the incoming queue populated
+//     // by the background reader thread. Returns 0 when no message is available.
+//     string msg;
+//     if (m_IncomingQueue.tryPop(msg)) {
+//         message = move(msg);
+//         return message.size();
+//     }
+//     return 0; // no message available right now
+//}
 
-size_t ClientSocket::readMessage_old(string &message){
+size_t ClientSocket::readMessage(string &message){
     char buffer[1024];
     memset(buffer, 0, sizeof(buffer));
     size_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
@@ -94,10 +94,11 @@ size_t ClientSocket::readMessage_old(string &message){
     }
     else if (bytes_received > 0)
     {
-        buffer[bytes_received] = '\0'; // Null-terminate the received data
+        buffer[bytes_received] = '\0'; 
         m_Logger.log(LogLevel::Debug, "{}:Message size:{}",__func__, bytes_received);
         m_Logger.log(LogLevel::Debug, "{}:Received from server:{}",__func__, buffer);
         message = string(buffer);
+        cout << __func__ << ":Received from server: " << message << "\n";
         return bytes_received;
     }
     else if (strcmp(buffer, "quit") == 0)
@@ -123,15 +124,19 @@ size_t ClientSocket::sendMessage(const string& message)
     return bytes_sent;
 }
 
-void ClientSocket::SocketClosed()
+void ClientSocket::socketClosed()
 {
     if (m_sockfd >= 0) {
         m_Logger.log(LogLevel::Info, "{}:Disconnecting from:{}:{}...",__func__, m_ip, m_PortHostName);
         // Stop reader thread first
         m_chatActive.store(false);
-        // Shutdown the socket to wake any blocking recv in reader thread
+#ifdef _WIN32
+        shutdown(m_sockfd, SD_BOTH);
+        closesocket(m_sockfd);
+#else
         shutdown(m_sockfd, SHUT_RDWR);
         close(m_sockfd);
+#endif
         m_sockfd = -1;
     }
 }
@@ -141,52 +146,45 @@ ClientSocket::~ClientSocket()
     WSACleanup();
 #endif
     m_Logger.log(LogLevel::Info,"{}:ClientSocket for:{}:{} destroyed.",__func__, m_ip, m_PortHostName);
-    // Ensure reader thread stopped
-    m_chatActive.store(false);
-    if (m_sockfd >= 0) {
-        shutdown(m_sockfd, SHUT_RDWR);
-        close(m_sockfd);
-        m_sockfd = -1;
-    }
-
+    socketClosed();
 }
 
-void ClientSocket::readerLoop()
-{
-    m_Logger.log(LogLevel::Debug, "{}:Reader thread started", __func__);
-    constexpr size_t BUFFER_SIZE = 1024;
-    char buffer[BUFFER_SIZE];
-    while (m_chatActive.load()) {
-        memset(buffer, 0, sizeof(buffer));
-        ssize_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
-        if (bytes_received > 0) {
-            buffer[bytes_received] = '\0';
-            m_Logger.log(LogLevel::Debug, "{}:Received from server:{}", __func__, buffer);
-            m_IncomingQueue.push(string(buffer));
-        }
-        else if (bytes_received == 0) {
-            m_Logger.log(LogLevel::Info, "{}:Server closed the connection.", __func__);
-            m_chatActive.store(false);
-            break;
-        }
-        else {
-            // error
-            int err = errno;
-            if (err == EINTR) {
-                continue; // interrupted, retry
-            }
-            if (err == EAGAIN || err == EWOULDBLOCK) {
-                // no data available on non-blocking socket - sleep briefly
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                continue;
-            }
-            m_Logger.log(LogLevel::Error, "{}:Error in recv():{}", __func__, strerror(err));
-            m_chatActive.store(false);
-            break;
-        }
-    }
-    m_Logger.log(LogLevel::Debug, "{}:Reader thread exiting", __func__);
-}
+// void ClientSocket::readerLoop()
+// {
+//     m_Logger.log(LogLevel::Debug, "{}:Reader thread started", __func__);
+//     constexpr size_t BUFFER_SIZE = 1024;
+//     char buffer[BUFFER_SIZE];
+//     while (m_chatActive.load()) {
+//         memset(buffer, 0, sizeof(buffer));
+//         ssize_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
+//         if (bytes_received > 0) {
+//             buffer[bytes_received] = '\0';
+//             m_Logger.log(LogLevel::Debug, "{}:Received from server:{}", __func__, buffer);
+//             m_IncomingQueue.push(string(buffer));
+//         }
+//         else if (bytes_received == 0) {
+//             m_Logger.log(LogLevel::Info, "{}:Server closed the connection.", __func__);
+//             m_chatActive.store(false);
+//             break;
+//         }
+//         else {
+//             // error
+//             int err = errno;
+//             if (err == EINTR) {
+//                 continue; // interrupted, retry
+//             }
+//             if (err == EAGAIN || err == EWOULDBLOCK) {
+//                 // no data available on non-blocking socket - sleep briefly
+//                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
+//                 continue;
+//             }
+//             m_Logger.log(LogLevel::Error, "{}:Error in recv():{}", __func__, strerror(err));
+//             m_chatActive.store(false);
+//             break;
+//         }
+//     }
+//     m_Logger.log(LogLevel::Debug, "{}:Reader thread exiting", __func__);
+// }
 
 void ClientSocket::logErrorMessage(int errorCode)
 {
