@@ -22,10 +22,17 @@ void sendMessageThread(ClientSocket& clientSocket, atomic<bool>& chatActive)
         {
             break;
         }
-        string temp = message.find(",") != string::npos ? message.substr(0, message.find(",")) : "1";
+        string temp = message.find(",") != string::npos ? message.substr(0, message.find(",")) : "0";
+        if (stoi(temp) > 0)
+        {
+            message = message.substr(temp.length() + 1, message.length() - (temp.length() + 1));
+        }
+        else{
+            temp = "1";
+        }
         for (int i=0; i < stoi(temp); i++)
         {
-            int bytesSent = clientSocket.sendMessage(message.substr(temp.length() + 1, message.length() - (temp.length() + 1))); 
+            int bytesSent = clientSocket.sendMessage(message);
             if (bytesSent == FAILURE){
                 break;
             }
