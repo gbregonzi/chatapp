@@ -42,6 +42,8 @@ void HandleConnectionsWindows::associateSocket(SOCKET clientSocket) {
     if (CreateIoCompletionPort((HANDLE)clientSocket, m_IOCP, (ULONG_PTR)context, 0) == NULL){
         m_Logger.log(LogLevel::Error, "{}:CreateIoCompletionPort failed:{}", __func__, ERROR_CODE);
         m_Logger.log(LogLevel::Error, "{}:{}", __func__ , getLastErrorDescription());
+        lock_guard lock(m_Mutex);
+        m_ClientSockets.erase(clientSocket);
         closesocket(clientSocket);
         delete context;
         return;
@@ -52,6 +54,8 @@ void HandleConnectionsWindows::associateSocket(SOCKET clientSocket) {
     if (ret != 0 && ERROR_CODE != WSA_IO_PENDING) {
         m_Logger.log(LogLevel::Error, "{}:WSARecv failed:{}", __func__, ERROR_CODE);
         m_Logger.log(LogLevel::Error, "{}:{}", __func__ , getLastErrorDescription());
+        lock_guard lock(m_Mutex);
+        m_ClientSockets.erase(clientSocket);
         closeSocket(clientSocket);
         delete context;
     }
@@ -63,7 +67,8 @@ void HandleConnectionsWindows::workerThread(HANDLE iocp) {
     DWORD bytesTransferred;
     ULONG_PTR completionKey;
     LPOVERLAPPED lpOverlapped;
-
+    int msgLen = 0;
+    int totalBytesRead = 0;
     while (getIsConnected()) {
         BOOL result = GetQueuedCompletionStatus(iocp, &bytesTransferred, &completionKey, &lpOverlapped, INFINITE);
         if (!result || lpOverlapped == nullptr) {
@@ -73,25 +78,34 @@ void HandleConnectionsWindows::workerThread(HANDLE iocp) {
         ClientContext* context = reinterpret_cast<ClientContext*>(completionKey);
 
         if (bytesTransferred == 0) {
-            
             closeSocket(context->socket);
+            lock_guard lock(m_Mutex);
+            m_ClientSockets.erase(context->socket);
+            m_Logger.log(LogLevel::Debug, "{}:Client disconnected.",__func__);    
             delete context;
             continue;
         }
-
-        {
+        context->buffer[bytesTransferred] = 0x0;
+        totalBytesRead += bytesTransferred;
+        cout << __func__ << ":Bytes received:" << bytesTransferred << "\n";
+        if (msgLen == 0){
+            msgLen = stoi(string(context->buffer).substr(0, 4));
+        }
+        if (msgLen == totalBytesRead){ 
             lock_guard lock(m_Mutex);
+            cout << __func__ << ":Message to broadcast:" << string(context->buffer).substr(4, msgLen) << "\n";  
             for (auto& sd:m_ClientSockets){
                 if (sd != context->socket){
-                    context->buffer[bytesTransferred] = 0x0;
-                    addProadcastMessage(sd, string(context->buffer));
+                    msgLen = 0;
+                    totalBytesRead = 0;
+                    addProadcastMessage(sd, string(context->buffer).substr(4, msgLen));
                 }    
             }
         }
 
         ZeroMemory(&context->overlapped, sizeof(OVERLAPPED));
         DWORD flags = 0;
-        WSARecv(context->socket, &context->wsabuf, 1, NULL, &flags, &context->overlapped, NULL);
+        WSARecv(context->socket, &context->wsabuf + totalBytesRead, 1, NULL, &flags, &context->overlapped, NULL);
     }
 }
 

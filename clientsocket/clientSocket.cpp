@@ -114,7 +114,10 @@ size_t ClientSocket::readMessage(string &message){
 
 size_t ClientSocket::sendMessage(const string& message)
 {
-    size_t bytes_sent = send(m_sockfd, message.c_str(), message.size(), 0);
+    string length_str = to_string(message.length() + 4);
+    string padded_length_str = string(4 - length_str.length(), '0') + length_str;
+    string full_message = padded_length_str + message;
+    size_t bytes_sent = send(m_sockfd, full_message.c_str(), message.size(), 0);
     if (bytes_sent < 0)
     {
         m_Logger.log(LogLevel::Error,"{}:Error sending data to server.",__func__);
