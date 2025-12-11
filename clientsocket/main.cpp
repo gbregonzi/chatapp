@@ -22,6 +22,7 @@ void sendMessageThread(ClientSocket& clientSocket, atomic<bool>& chatActive)
         {
             break;
         }
+        // Check for optional repeat message count
         string temp = message.find(",") != string::npos ? message.substr(0, message.find(",")) : "0";
         if (stoi(temp) > 0)
         {
@@ -63,7 +64,6 @@ void readMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
         }
     }
     cout << "Exiting read message thread." << "\n"; 
-    chatActive.store(false);
     clientcocket.socketClosed();
 }
 

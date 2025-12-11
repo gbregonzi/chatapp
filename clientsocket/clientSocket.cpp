@@ -68,21 +68,8 @@ int ClientSocket::connect()
     }
     m_Logger.log(LogLevel::Info, "{}:Connected", __func__);
     m_chatActive.store(true); // Mark chat as active
-    // Start background reader thread so reads don't block the caller.
-    //m_ReaderThread = jthread(&ClientSocket::readerLoop, this);
     return 0;
 }
-
-// size_t ClientSocket::readMessage(string &message){
-//     // Non-blocking: try to pop a message from the incoming queue populated
-//     // by the background reader thread. Returns 0 when no message is available.
-//     string msg;
-//     if (m_IncomingQueue.tryPop(msg)) {
-//         message = move(msg);
-//         return message.size();
-//     }
-//     return 0; // no message available right now
-//}
 
 size_t ClientSocket::readMessage(string &message){
     char buffer[1024];
@@ -97,8 +84,9 @@ size_t ClientSocket::readMessage(string &message){
         buffer[bytes_received] = '\0'; 
         m_Logger.log(LogLevel::Debug, "{}:Message size:{}",__func__, bytes_received);
         m_Logger.log(LogLevel::Debug, "{}:Received from server:{}",__func__, buffer);
+        cout << __func__ << ":Message size received: " << bytes_received << "\n";
+        cout << __func__ << ":Message received: " << buffer << "\n";
         message = string(buffer);
-        cout << __func__ << ":Received from server: " << message << "\n";
         return bytes_received;
     }
     else if (strcmp(buffer, "quit") == 0)
@@ -117,13 +105,16 @@ size_t ClientSocket::sendMessage(const string& message)
     string length_str = to_string(message.length() + 4);
     string padded_length_str = string(4 - length_str.length(), '0') + length_str;
     string full_message = padded_length_str + message;
-    size_t bytes_sent = send(m_sockfd, full_message.c_str(), message.size(), 0);
+    size_t bytes_sent = send(m_sockfd, full_message.c_str(), full_message.size(), 0);
     if (bytes_sent < 0)
     {
         m_Logger.log(LogLevel::Error,"{}:Error sending data to server.",__func__);
         return -1;
     }
+    cout << __func__ << ": Message size sent: " << bytes_sent << "\n";  
+    m_Logger.log(LogLevel::Debug, "{}:Message size:{}",__func__, bytes_sent);
     m_Logger.log(LogLevel::Debug, "{}:Sent to server:{}",__func__, message);
+
     return bytes_sent;
 }
 

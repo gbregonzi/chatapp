@@ -56,7 +56,6 @@ public:
     // readMessage - read a single message from server
     // message - is output parameter to hold the received message
     // returns number of bytes read, or -1 on error/disconnection
-    //size_t readMessage_new(string &message);
     size_t readMessage(string &message);
 
     // internal reader loop run on a background thread

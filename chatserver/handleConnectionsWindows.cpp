@@ -7,7 +7,8 @@ struct ClientContext {
     SOCKET socket;
     OVERLAPPED overlapped;
     WSABUF wsabuf;
-    char buffer[1024];
+    static constexpr int BUFFER_SZ = 1024;
+    char buffer[BUFFER_SZ];
 
     ClientContext(SOCKET s) : socket(s) {
         ZeroMemory(&overlapped, sizeof(OVERLAPPED));
@@ -67,8 +68,9 @@ void HandleConnectionsWindows::workerThread(HANDLE iocp) {
     DWORD bytesTransferred;
     ULONG_PTR completionKey;
     LPOVERLAPPED lpOverlapped;
-    int msgLen = 0;
-    int totalBytesRead = 0;
+    int msgLen{0};
+    int totalBytesRead{0};
+
     while (getIsConnected()) {
         BOOL result = GetQueuedCompletionStatus(iocp, &bytesTransferred, &completionKey, &lpOverlapped, INFINITE);
         if (!result || lpOverlapped == nullptr) {
@@ -105,7 +107,17 @@ void HandleConnectionsWindows::workerThread(HANDLE iocp) {
 
         ZeroMemory(&context->overlapped, sizeof(OVERLAPPED));
         DWORD flags = 0;
-        WSARecv(context->socket, &context->wsabuf + totalBytesRead, 1, NULL, &flags, &context->overlapped, NULL);
+        auto errorCode = WSARecv(context->socket, &context->wsabuf + totalBytesRead, 1, NULL, &flags, &context->overlapped, NULL);
+        if (errorCode == SOCKET_ERROR) {
+            int wserr = WSAGetLastError();
+            if (wserr != WSA_IO_PENDING) {
+                lock_guard lock(m_Mutex);
+                m_ClientSockets.erase(context->socket);
+                closesocket(context->socket);
+                delete context;
+                continue;
+            }
+        }
     }
 }
 
