@@ -24,3 +24,21 @@ string getLastErrorDescription() {
 #endif
     return result;
 }
+
+void logLastError(Logger& logger)
+{
+    int errorCode{0};
+#ifdef _WIN32
+    errorCode = WSAGetLastError();
+#else
+    errorCode = errno;
+#endif
+    logger.log(LogLevel::Error, "{}:Error code:{}",__func__, errorCode);
+    logger.log(LogLevel::Error, "{}:Error description:{}",__func__, getLastErrorDescription());
+}
+
+void logLastError(Logger& logger, int errorCode)
+{
+    logger.log(LogLevel::Error, "{}:Error code:{}",__func__, errorCode);
+    logger.log(LogLevel::Error, "{}:Error description:{}",__func__, getLastErrorDescription());
+}

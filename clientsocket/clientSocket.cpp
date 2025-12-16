@@ -15,6 +15,7 @@
 #endif
 
 #include "clientSocket.h"
+#include "../utils/util.h"
 #include <cerrno>
 #include <chrono>
 
@@ -31,6 +32,7 @@ int ClientSocket::connect()
     WSADATA d;
     if (WSAStartup(MAKEWORD(2,2), &d)) {
         m_Logger.log(LogLevel::Error, "{}:Failed to initialize Winsock!", __func__);
+        logLastError(m_Logger);
         exit(EXIT_FAILURE);
     }
 #endif
@@ -43,12 +45,14 @@ int ClientSocket::connect()
         }
         m_sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
         if (m_sockfd < 0) {
-            m_Logger.log(LogLevel::Error, "{}:Socket creation failed! Erro:{}",__func__, strerror(errno));
+            m_Logger.log(LogLevel::Error, "{}:Socket creation failed!",__func__);
+            logLastError(m_Logger);
             freeaddrinfo(res);
             return EXIT_FAILURE;
         }
         if (::connect(m_sockfd, res->ai_addr, res->ai_addrlen) < 0) {
-            m_Logger.log(LogLevel::Error, "{}:Connection failed! Erro:{}",__func__, strerror(errno));
+            m_Logger.log(LogLevel::Error, "{}:Connection failed!",__func__);
+            logLastError(m_Logger);
             freeaddrinfo(res);
             return EXIT_FAILURE;
         }
@@ -62,7 +66,8 @@ int ClientSocket::connect()
         inet_pton(AF_INET, m_ip.c_str(), &server_addr.sin_addr);
         if (::connect(m_sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
         {
-            m_Logger.log(LogLevel::Error,"{}:Connection failed! Erro:{}",__func__, strerror(errno));
+            m_Logger.log(LogLevel::Error,"{}:Connection failed!",__func__);
+            logLastError(m_Logger);
             return -1;
         }
     }
@@ -77,7 +82,8 @@ size_t ClientSocket::readMessage(string &message){
     size_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
     if (bytes_received == ULLONG_MAX || bytes_received == 0)
     {
-        m_Logger.log(LogLevel::Info, "{}:Server closed the connection.",__func__);
+        m_Logger.log(LogLevel::Info, "{}:Clonnection closed.",__func__);
+        cout << __func__ << ":Server closed the connection." << "\n";
     }
     else if (bytes_received > 0)
     {
@@ -109,6 +115,7 @@ size_t ClientSocket::sendMessage(const string& message)
     if (bytes_sent < 0)
     {
         m_Logger.log(LogLevel::Error,"{}:Error sending data to server.",__func__);
+        logLastError(m_Logger);
         return -1;
     }
     cout << __func__ << ": Message size sent: " << bytes_sent << "\n";  
@@ -179,12 +186,6 @@ ClientSocket::~ClientSocket()
 //     }
 //     m_Logger.log(LogLevel::Debug, "{}:Reader thread exiting", __func__);
 // }
-
-void ClientSocket::logErrorMessage(int errorCode)
-{
-    m_Logger.log(LogLevel::Error, "{}:Error code:{}",__func__, errorCode);
-    m_Logger.log(LogLevel::Error, "{}:Error description:{}",__func__, strerror(errorCode));
-}
 
 bool ClientSocket::getLogggerFileOpen(){
     return m_Logger.isOpen();

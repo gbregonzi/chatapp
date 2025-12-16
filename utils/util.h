@@ -12,5 +12,8 @@ typedef int socklen_t;
 #endif
 
 using namespace std;
+#include "logger.h"
 
 string getLastErrorDescription();
+void logLastError(Logger& logger);
+void logLastError(Logger& logger, int errorCode);

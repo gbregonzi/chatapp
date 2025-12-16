@@ -88,12 +88,12 @@ void HandleConnectionsWindows::workerThread(HANDLE iocp) {
             continue;
         }
         context->buffer[bytesTransferred] = 0x0;
-        totalBytesRead += bytesTransferred;
+        //totalBytesRead += bytesTransferred;
         cout << __func__ << ":Bytes received:" << bytesTransferred << "\n";
         if (msgLen == 0){
             msgLen = stoi(string(context->buffer).substr(0, 4));
         }
-        if (msgLen == totalBytesRead){ 
+        //if (msgLen == totalBytesRead){ 
             lock_guard lock(m_Mutex);
             cout << __func__ << ":Message to broadcast:" << string(context->buffer).substr(4, msgLen) << "\n";  
             for (auto& sd:m_ClientSockets){
@@ -103,7 +103,7 @@ void HandleConnectionsWindows::workerThread(HANDLE iocp) {
                     addProadcastMessage(sd, string(context->buffer).substr(4, msgLen));
                 }    
             }
-        }
+        //}
 
         ZeroMemory(&context->overlapped, sizeof(OVERLAPPED));
         DWORD flags = 0;
@@ -114,6 +114,7 @@ void HandleConnectionsWindows::workerThread(HANDLE iocp) {
                 lock_guard lock(m_Mutex);
                 m_ClientSockets.erase(context->socket);
                 closesocket(context->socket);
+                logLastError(m_Logger, wserr);
                 delete context;
                 continue;
             }

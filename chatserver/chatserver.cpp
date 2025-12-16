@@ -38,10 +38,8 @@ bool ChatServer::createListner(){
 
     if (getaddrinfo(m_ServerName.c_str(), m_PortNumber.c_str(), &hints, &ai) != 0) {
         m_Logger.log(LogLevel::Error, "{}:Getaddrinfo failed!",__func__);
-        m_Logger.log(LogLevel::Error, "{}:Error Code:{}",__func__, ERROR_CODE);
         m_Logger.log(LogLevel::Error, "{}:{}",__func__, gai_strerror(ERROR_CODE));
-
-        m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__ , ERROR_CODE);
+        logLastError(m_Logger);
         exit(EXIT_FAILURE);
     }
 
@@ -55,7 +53,7 @@ bool ChatServer::createListner(){
         if (setsockopt(m_SockfdListener, SOL_SOCKET, SO_REUSEADDR, &optval, optlen) < 0)
         {
             m_Logger.log(LogLevel::Error, "{}:Setsockopt failed!",__func__);
-            m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
+            logLastError(m_Logger);
             CLOSESOCKET(m_SockfdListener);
             continue;
         }
@@ -66,7 +64,7 @@ bool ChatServer::createListner(){
         }
         
         m_Logger.log(LogLevel::Error, "{}:Bind failed! Retrying...",__func__);
-        m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
+        logLastError(m_Logger);
         CLOSESOCKET(m_SockfdListener);
     }
     
@@ -79,13 +77,14 @@ bool ChatServer::createListner(){
     
     if (getnameinfo(p->ai_addr, p->ai_addrlen, hostName, sizeof(hostName), service, sizeof(service), NI_NOFQDN|NI_NAMEREQD) != 0) {
         m_Logger.log(LogLevel::Error, "{}:getnameinfo fail!",__func__);
+        logLastError(m_Logger);
     }
     
     freeaddrinfo(ai); // all done with this
     if (listen(m_SockfdListener, MAX_QUEUE_CONNECTINON) < 0)
     {
         m_Logger.log(LogLevel::Error, "{}:Listen failed!",__func__);
-        m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
+        logLastError(m_Logger);
         return false;
     }
     m_Logger.log(LogLevel::Info, "{}:Server name:{} Port:{}",__func__, hostName, m_PortNumber);
@@ -123,7 +122,8 @@ bool ChatServer::getClientIP(int sd )
     const char *ipVer;
     if (getpeername(sd, (struct sockaddr *)&sockAddr, &sockAddrLen) != 0)
     {
-        m_Logger.log(LogLevel::Error, "{}:Getpeername failed! Error: {}",__func__, errno);
+        m_Logger.log(LogLevel::Error, "{}:Getpeername failed!",__func__);
+        logLastError(m_Logger);
         return false;
     }
     
@@ -148,7 +148,7 @@ bool ChatServer::sendMessage(int sd, const string_view message)
     if (bytesSent < 0)
     {
         m_Logger.log(LogLevel::Error, "{}:Send to client failed!",__func__);
-        m_Logger.log(LogLevel::Info, "{}:Error Code:{}", __func__, ERROR_CODE);
+        logLastError(m_Logger);
         return false;
     }
     return true;
@@ -208,35 +208,6 @@ void ChatServer::addProadcastMessage(int sd, const string& message) {
     }
     m_Cv.notify_one();
 }   
-
-// void ChatServer::threadBroadcastMessage() {
-//     m_Logger.log(LogLevel::Debug, "{}:Broadcast thread started.", __func__);
-
-//     m_BroadcastThread = jthread([this](stop_token token) {
-//         while (!token.stop_requested()) {
-//             pair<int, string> front{};
-//             {
-//                 lock_guard lock(m_Mutex);
-//                 if (!m_BroadcastMessageQueue.empty()) {
-//                     front = m_BroadcastMessageQueue.front();
-//                     m_BroadcastMessageQueue.pop();
-//                 }
-//             }
-            
-//             if (front.first > 0) {
-//                 int sd = front.first;
-//                 const string& message = front.second;
-//                 if (sendMessage(sd, message)) {
-//                     m_Logger.log(LogLevel::Debug, "{}:sd:{} Sent message to client:{}",__func__, sd, message);
-//                 } else {
-//                     m_Logger.log(LogLevel::Error, "{}:Failed to send message to client:{}", __func__, sd);
-//                 }
-//             }
-//             this_thread::yield;
-//         }
-//         m_Logger.log(LogLevel::Debug, "{}:Broadcast thread stoped", __func__);
-//     });
-// }
 
 void ChatServer::closeSocket(int sd)
 {
