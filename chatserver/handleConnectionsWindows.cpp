@@ -7,8 +7,8 @@ struct ClientContext {
     SOCKET socket;
     OVERLAPPED overlapped;
     WSABUF wsabuf;
-    static constexpr int BUFFER_SZ = 1024;
-    char buffer[BUFFER_SZ];
+    static constexpr int BUFFER_SZ = 2048;
+    char buffer[BUFFER_SZ + 1];
 
     ClientContext(SOCKET s) : socket(s) {
         ZeroMemory(&overlapped, sizeof(OVERLAPPED));
@@ -88,22 +88,23 @@ void HandleConnectionsWindows::workerThread(HANDLE iocp) {
             continue;
         }
         context->buffer[bytesTransferred] = 0x0;
-        //totalBytesRead += bytesTransferred;
+        totalBytesRead += bytesTransferred;
         cout << __func__ << ":Bytes received:" << bytesTransferred << "\n";
+        cout << __func__ << ":Total bytes received so far:" << totalBytesRead << "\n";
         if (msgLen == 0){
             msgLen = stoi(string(context->buffer).substr(0, 4));
         }
-        //if (msgLen == totalBytesRead){ 
+        if (msgLen == totalBytesRead){ 
             lock_guard lock(m_Mutex);
             cout << __func__ << ":Message to broadcast:" << string(context->buffer).substr(4, msgLen) << "\n";  
             for (auto& sd:m_ClientSockets){
                 if (sd != context->socket){
-                    msgLen = 0;
-                    totalBytesRead = 0;
                     addProadcastMessage(sd, string(context->buffer).substr(4, msgLen));
                 }    
             }
-        //}
+            msgLen = 0;
+            totalBytesRead = 0;
+        }
 
         ZeroMemory(&context->overlapped, sizeof(OVERLAPPED));
         DWORD flags = 0;

@@ -2,6 +2,8 @@
 #include <string>
 #include <cstring>
 #include <thread>
+#include <cerrno>
+#include <chrono>
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -16,9 +18,9 @@
 
 #include "clientSocket.h"
 #include "../utils/util.h"
-#include <cerrno>
-#include <chrono>
 
+constexpr int BUFFER_SIZE{2048};
+constexpr int MESSAGE_SIZE_HEADER{4};
 
 ClientSocket::ClientSocket(Logger& logger, const string& ip, const char* portHostName) : 
         m_Logger(logger), m_ip(ip), m_PortHostName(portHostName) {
@@ -76,24 +78,47 @@ int ClientSocket::connect()
     return 0;
 }
 
-size_t ClientSocket::readMessage(string &message){
-    char buffer[1024];
+size_t ClientSocket::readSize(){
+    char buffer[MESSAGE_SIZE_HEADER + 1];
     memset(buffer, 0, sizeof(buffer));
     size_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
     if (bytes_received == ULLONG_MAX || bytes_received == 0)
     {
         m_Logger.log(LogLevel::Info, "{}:Clonnection closed.",__func__);
         cout << __func__ << ":Server closed the connection." << "\n";
+        return -1;
     }
-    else if (bytes_received > 0)
+    return stoi(string(buffer));
+}
+
+size_t ClientSocket::readMessage(string &message){
+    char buffer[BUFFER_SIZE + 1];
+    memset(buffer, 0, sizeof(buffer));
+    size_t bytes_to_read = readSize();
+    size_t total_bytes_read = 0;
+    if (bytes_to_read == -1){
+        m_Logger.log(LogLevel::Info, "{}:Failed to read message size.",__func__);
+        return -1;
+    }   
+    while(total_bytes_read < bytes_to_read){
+        size_t bytes_received = recv(m_sockfd, buffer + total_bytes_read, bytes_to_read - total_bytes_read, 0);
+        if (bytes_received == ULLONG_MAX || bytes_received == 0)
+        {
+            m_Logger.log(LogLevel::Info, "{}:Clonnection closed.",__func__);
+            cout << __func__ << ":Server closed the connection." << "\n";
+            return -1;
+        }
+        total_bytes_read += bytes_received;
+    }
+    if (total_bytes_read > 0)
     {
-        buffer[bytes_received] = '\0'; 
-        m_Logger.log(LogLevel::Debug, "{}:Message size:{}",__func__, bytes_received);
+        buffer[total_bytes_read] = '\0'; 
+        m_Logger.log(LogLevel::Debug, "{}:Message size:{}",__func__, total_bytes_read + MESSAGE_SIZE_HEADER);
         m_Logger.log(LogLevel::Debug, "{}:Received from server:{}",__func__, buffer);
-        cout << __func__ << ":Message size received: " << bytes_received << "\n";
+        cout << __func__ << ":Message size received: " << total_bytes_read + MESSAGE_SIZE_HEADER << "\n";
         cout << __func__ << ":Message received: " << buffer << "\n";
         message = string(buffer);
-        return bytes_received;
+        return total_bytes_read;
     }
     else if (strcmp(buffer, "quit") == 0)
     {
@@ -149,43 +174,6 @@ ClientSocket::~ClientSocket()
     m_Logger.log(LogLevel::Info,"{}:ClientSocket for:{}:{} destroyed.",__func__, m_ip, m_PortHostName);
     socketClosed();
 }
-
-// void ClientSocket::readerLoop()
-// {
-//     m_Logger.log(LogLevel::Debug, "{}:Reader thread started", __func__);
-//     constexpr size_t BUFFER_SIZE = 1024;
-//     char buffer[BUFFER_SIZE];
-//     while (m_chatActive.load()) {
-//         memset(buffer, 0, sizeof(buffer));
-//         ssize_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
-//         if (bytes_received > 0) {
-//             buffer[bytes_received] = '\0';
-//             m_Logger.log(LogLevel::Debug, "{}:Received from server:{}", __func__, buffer);
-//             m_IncomingQueue.push(string(buffer));
-//         }
-//         else if (bytes_received == 0) {
-//             m_Logger.log(LogLevel::Info, "{}:Server closed the connection.", __func__);
-//             m_chatActive.store(false);
-//             break;
-//         }
-//         else {
-//             // error
-//             int err = errno;
-//             if (err == EINTR) {
-//                 continue; // interrupted, retry
-//             }
-//             if (err == EAGAIN || err == EWOULDBLOCK) {
-//                 // no data available on non-blocking socket - sleep briefly
-//                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
-//                 continue;
-//             }
-//             m_Logger.log(LogLevel::Error, "{}:Error in recv():{}", __func__, strerror(err));
-//             m_chatActive.store(false);
-//             break;
-//         }
-//     }
-//     m_Logger.log(LogLevel::Debug, "{}:Reader thread exiting", __func__);
-// }
 
 bool ClientSocket::getLogggerFileOpen(){
     return m_Logger.isOpen();

@@ -144,7 +144,11 @@ bool ChatServer::getClientIP(int sd )
 
 bool ChatServer::sendMessage(int sd, const string_view message)
 {
-    size_t bytesSent = send(sd, message.data(), message.length(), 0);
+    string length_str = to_string(message.length());
+    string padded_length_str = string(4 - length_str.length(), '0') + length_str;
+    string full_message = padded_length_str + string(message);
+
+    size_t bytesSent = send(sd, full_message.data(), full_message.length(), 0);
     if (bytesSent < 0)
     {
         m_Logger.log(LogLevel::Error, "{}:Send to client failed!",__func__);

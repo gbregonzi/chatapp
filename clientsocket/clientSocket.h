@@ -58,8 +58,9 @@ public:
     // returns number of bytes read, or -1 on error/disconnection
     size_t readMessage(string &message);
 
-    // internal reader loop run on a background thread
-    //void readerLoop();
+    // readSize - read the size of the next message from server
+    // returns size of the next message, or -1 on error/disconnection   
+    size_t readSize();
 
     // logErrorMessage - prints error code and description
     // errorCode: the error code to be printed
