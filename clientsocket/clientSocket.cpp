@@ -78,10 +78,10 @@ int ClientSocket::connect()
     return 0;
 }
 
-size_t ClientSocket::readSize(){
+int ClientSocket::readSize(){
     char buffer[MESSAGE_SIZE_HEADER + 1];
     memset(buffer, 0, sizeof(buffer));
-    size_t bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
+    int bytes_received = recv(m_sockfd, buffer, sizeof(buffer) - 1, 0);
     if (bytes_received == ULLONG_MAX || bytes_received == 0)
     {
         m_Logger.log(LogLevel::Info, "{}:Clonnection closed.",__func__);
@@ -91,17 +91,17 @@ size_t ClientSocket::readSize(){
     return stoi(string(buffer));
 }
 
-size_t ClientSocket::readMessage(string &message){
+int ClientSocket::readMessage(string &message){
     char buffer[BUFFER_SIZE + 1];
     memset(buffer, 0, sizeof(buffer));
-    size_t bytes_to_read = readSize();
-    size_t total_bytes_read = 0;
+    int bytes_to_read = readSize();
+    int total_bytes_read = 0;
     if (bytes_to_read == -1){
         m_Logger.log(LogLevel::Info, "{}:Failed to read message size.",__func__);
         return -1;
     }   
     while(total_bytes_read < bytes_to_read){
-        size_t bytes_received = recv(m_sockfd, buffer + total_bytes_read, bytes_to_read - total_bytes_read, 0);
+        int bytes_received = recv(m_sockfd, buffer + total_bytes_read, bytes_to_read - total_bytes_read, 0);
         if (bytes_received == ULLONG_MAX || bytes_received == 0)
         {
             m_Logger.log(LogLevel::Info, "{}:Clonnection closed.",__func__);
@@ -131,12 +131,32 @@ size_t ClientSocket::readMessage(string &message){
     return -1; // Indicate error or connection closed
 }
 
-size_t ClientSocket::sendMessage(const string& message)
+int ClientSocket::sendMessage(int messageSize)
 {
-    string length_str = to_string(message.length() + 4);
+    string length_str = to_string(messageSize);
     string padded_length_str = string(4 - length_str.length(), '0') + length_str;
-    string full_message = padded_length_str + message;
-    size_t bytes_sent = send(m_sockfd, full_message.c_str(), full_message.size(), 0);
+    int bytes_sent = send(m_sockfd, padded_length_str.c_str(), padded_length_str.size(), 0);
+    if (bytes_sent < 0)
+    {
+        m_Logger.log(LogLevel::Error,"{}:Error sending data to server.",__func__);
+        logLastError(m_Logger);
+        return -1;
+    }
+    m_Logger.log(LogLevel::Debug, "{}:Header message size sent:{}",__func__, bytes_sent);
+    m_Logger.log(LogLevel::Debug, "{}:Message size sent to server:{}",__func__, messageSize);
+    
+    return bytes_sent;   
+}
+
+int ClientSocket::sendMessage(const string& message)
+{
+    int bytes_sent = sendMessage(message.size());
+    if (bytes_sent < 0)
+    {
+        return -1;
+    }
+    
+    bytes_sent = send(m_sockfd, message.c_str(), message.size(), 0);
     if (bytes_sent < 0)
     {
         m_Logger.log(LogLevel::Error,"{}:Error sending data to server.",__func__);

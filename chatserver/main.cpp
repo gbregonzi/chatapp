@@ -58,6 +58,7 @@ int main (int argc, const char* argv[]){
     else {
         cout << "Log file name not provided, Using default log file name: " << logFileName << "\n";
     }
+    
     StartServer startServer(logFileName, serverName, portNumber);
     startServer.Run();
 

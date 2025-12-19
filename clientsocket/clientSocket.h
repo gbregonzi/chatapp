@@ -51,16 +51,20 @@ public:
     // sendMessage - send a single message to server
     // message - the message to send
     // returns number of bytes sent, or -1 on error
-    size_t sendMessage(const string& message);
+    int sendMessage(const string& message);
+
+    // sendMessage - send message size to server
+    // messageSize - size of the message to send
+    int sendMessage(int messageSize);
 
     // readMessage - read a single message from server
     // message - is output parameter to hold the received message
     // returns number of bytes read, or -1 on error/disconnection
-    size_t readMessage(string &message);
+    int readMessage(string &message);
 
     // readSize - read the size of the next message from server
     // returns size of the next message, or -1 on error/disconnection   
-    size_t readSize();
+    int readSize();
 
     // logErrorMessage - prints error code and description
     // errorCode: the error code to be printed

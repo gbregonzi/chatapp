@@ -55,7 +55,6 @@ void postReadHeader(SOCKET s, IOContext* ctx) {
     if (rc == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING) {
         std::cerr << __func__<< ":WSARecv failed: " << WSAGetLastError() << std::endl;
     }
-    //getDataFromCompletition();
 }
 
 void processMessage(const std::string& msg, SOCKET sd) {
@@ -109,7 +108,6 @@ void handleCompletion(IOContext* ctx, DWORD bytesTransferred, SOCKET s) {
         if (rc == SOCKET_ERROR && WSAGetLastError() != WSA_IO_PENDING) {
             std::cerr << __func__ << ":WSARecv failed: " << WSAGetLastError() << std::endl;
         }
-        //getDataFromCompletition();
     }
     else if (ctx->state == IOContext::READ_BODY) {
         if (ctx->received < ctx->expected) {
