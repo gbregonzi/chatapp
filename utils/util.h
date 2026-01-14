@@ -17,3 +17,4 @@ using namespace std;
 string getLastErrorDescription();
 void logLastError(Logger& logger);
 void logLastError(Logger& logger, int errorCode);
+void logLastError(Logger& logger, const string & message, int errorCode);

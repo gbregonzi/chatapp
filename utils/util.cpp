@@ -42,3 +42,10 @@ void logLastError(Logger& logger, int errorCode)
     logger.log(LogLevel::Error, "{}:Error code:{}",__func__, errorCode);
     logger.log(LogLevel::Error, "{}:Error description:{}",__func__, getLastErrorDescription());
 }
+
+void logLastError(Logger& logger, const string & message, int errorCode)
+{
+    logger.log(LogLevel::Error, "{}:{}", __func__, message);
+    logger.log(LogLevel::Error, "{}:Error code:{}",__func__, errorCode);
+    logger.log(LogLevel::Error, "{}:Error description:{}",__func__, getLastErrorDescription());
+}
