@@ -3,7 +3,7 @@
 #include <thread>
 #include <atomic>
 
-#include "clientSocket.h"
+#include "clientSocket_new.h"
 #include "../utils/util.h"
 #include "../utils/file.h"
 
@@ -41,7 +41,8 @@ void sendMessageThread(ClientSocket& clientSocket, Logger& logger)
             for (int i=0; i < stoi(temp); i++)
             {
                 int bytesSent = clientSocket.sendMessage(message);
-                if (bytesSent == FAILURE){
+                if (bytesSent == FAILURE)
+                {
                     break;
                 }
             }
@@ -82,16 +83,11 @@ void sendMessageThread(ClientSocket& clientSocket, Logger& logger)
     clientSocket.socketClosed();
 }
 
-// void startSendMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive, Logger& logger)
-// {
-//     sendThread.push_back(jthread(sendMessageThread, ref(clientcocket), ref(chatActive), ref(logger)));
-// }
-
 future<void> startSendMessageThread(ClientSocket& clientcocket, Logger& logger)
 {
     promise<void> prom;
     future<void> fut = prom.get_future();
-    sendThread.push_back(std::jthread([&clientcocket, p = move(prom), &logger]() mutable {
+    sendThread.push_back(jthread([&clientcocket, p = move(prom), &logger]() mutable {
         sendMessageThread(clientcocket, logger);
         p.set_value(); // notify completion
     }));
@@ -115,15 +111,11 @@ void readMessageThread(ClientSocket& clientcocket)
     clientcocket.socketClosed();
 }
 
-// void startReadMessageThread(ClientSocket& clientcocket, atomic<bool>& chatActive)
-// {
-//     readThread.push_back(jthread(readMessageThread, ref(clientcocket), ref(chatActive)));
-// }
 future<void> startReadMessageThread(ClientSocket& clientSocket)
 {
     promise<void> prom;
     future<void> fut = prom.get_future();
-    readThread.push_back(std::jthread([&clientSocket, p = move(prom)]() mutable {
+    readThread.push_back(jthread([&clientSocket, p = move(prom)]() mutable {
         readMessageThread(clientSocket);
         p.set_value(); // notify completion
     }));
@@ -131,7 +123,6 @@ future<void> startReadMessageThread(ClientSocket& clientSocket)
 }
 
 int main (int argc, char *argv[]) {
-    //atomic<bool> chatActive{true};
     string logFileName;
     int clientInstance;
 
@@ -174,10 +165,8 @@ int main (int argc, char *argv[]) {
             return EXIT_FAILURE;
         }
     }
-    // while(chatActive.load()) {
-    //     this_thread::yield();
-    // }
-    for (future<void>& ft : readPromise) {
+    for (future<void>& ft : readPromise) 
+    {
         ft.get(); // wait for read thread to complete
     }   
     

@@ -13,8 +13,8 @@ set(SOURCES
     main.cpp
     chatserver.cpp
     startserver.cpp
-    ../utils/logger.cpp
-    ../utils/util.cpp
+ #   ../utils/logger.cpp
+ #   ../utils/util.cpp
 )
 
 # List headers separately (optional, for IDE visibility)
@@ -22,8 +22,8 @@ set(HEADERS
     chatserver.h
     startserver.h
     chatServerFactory.h
-    ../utils/logger.h
-    ../utils/util.h
+#    ../utils/logger.h
+#    ../utils/util.h
 )
 
 
@@ -50,8 +50,8 @@ target_sources(chatServer PRIVATE ${SOURCES} ${HEADERS})
 
 if(WIN32)
     # Link Winsock library on Windows
-    target_link_libraries(chatServer ws2_32)
+    target_link_libraries(chatServer PRIVATE ws2_32 logger util)
 else()
     # Link pthread library on Unix-like systems 
-    target_link_libraries(chatServer pthread fmt::fmt)   
+    target_link_libraries(chatServer PRIVATE pthread fmt::fmt logger util)   
 endif()

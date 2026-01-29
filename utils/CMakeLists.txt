@@ -12,6 +12,7 @@ set(SOURCES
     functionWrapper.cpp
     threadPool.cpp
     logger.cpp
+    util.cpp
 )
 
 # List headers separately (optional, for IDE visibility)
@@ -20,15 +21,15 @@ set(HEADERS
     threadSafeQueue.h
     threadPool.h
     logger.h
+    util.h
 )
 
 add_library(functionWrapper STATIC ${SOURCES} ${HEADERS})
 add_library(threadPool STATIC ${SOURCES} ${HEADERS})
 add_library(logger STATIC ${SOURCES} ${HEADERS})
+add_library(util STATIC ${SOURCES} ${HEADERS})
 
-#target_include_directories(functionWrapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-#target_include_directories(threadPool PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-#target_include_directories(logger PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-
-
+target_include_directories(functionWrapper PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(threadPool PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(logger PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(util PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

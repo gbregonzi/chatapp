@@ -1,4 +1,5 @@
 #include "util.h"
+
 // getLastErrorDescription - retrieves a description for the last error code
 string getLastErrorDescription() {
     string result;
@@ -27,13 +28,7 @@ string getLastErrorDescription() {
 
 void logLastError(Logger& logger)
 {
-    int errorCode{0};
-#ifdef _WIN32
-    errorCode = WSAGetLastError();
-#else
-    errorCode = errno;
-#endif
-    logger.log(LogLevel::Error, "{}:Error code:{}",__func__, errorCode);
+    logger.log(LogLevel::Error, "{}:Error code:{}",__func__, ERROR_CODE);
     logger.log(LogLevel::Error, "{}:Error description:{}",__func__, getLastErrorDescription());
 }
 

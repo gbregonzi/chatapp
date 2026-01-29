@@ -9,15 +9,11 @@ enable_testing()
 set(SOURCES
     main.cpp
     clientSocket.cpp
-    ../utils/logger.cpp
-    ../utils/util.cpp
 )
 
 # List headers separately (optional, for IDE visibility)
 set(HEADERS
     clientSocket.h
-    ../utils/logger.h
-    ../utils/util.h
 )
 
 if (UNIX)
@@ -31,9 +27,9 @@ set_property(TARGET clientSocket PROPERTY CMAKE_CXX_STANDARD 20)
 if(WIN32)
     # Link Winsock library on Windows
     message(STATUS "Compiling for Windows")
-    target_link_libraries(clientSocket ws2_32)
+    target_link_libraries(clientSocket PRIVATE ws2_32 logger util)
 else()
     # Link pthread library on Unix-like systems
     message(STATUS "Compiling for Linux")
-    target_link_libraries(clientSocket pthread fmt::fmt) 
+    target_link_libraries(clientSocket PRIVATE pthread fmt::fmt logger util) 
 endif()
