@@ -9,11 +9,15 @@ enable_testing()
 set(SOURCES
     main.cpp
     clientSocket.cpp
+   ../utils/logger.cpp
+   ../utils/util.cpp
 )
 
 # List headers separately (optional, for IDE visibility)
 set(HEADERS
     clientSocket.h
+   ../utils/logger.h
+   ../utils/util.h
 )
 
 if (UNIX)

@@ -13,8 +13,6 @@ set(SOURCES
     main.cpp
     chatserver.cpp
     startserver.cpp
- #   ../utils/logger.cpp
- #   ../utils/util.cpp
 )
 
 # List headers separately (optional, for IDE visibility)
@@ -22,8 +20,6 @@ set(HEADERS
     chatserver.h
     startserver.h
     chatServerFactory.h
-#    ../utils/logger.h
-#    ../utils/util.h
 )
 
 

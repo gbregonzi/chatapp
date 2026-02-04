@@ -1,0 +1,13 @@
+# Define the path to your executable
+$exePath = D:\Development\C++\chatapp\build-debug\clientsocket\clientSocket.exe"
+
+# Loop 10 times
+for ($i = 1; $i -le 1; $i++) {
+    # Create a unique filename using the loop counter
+    $fileName = "sendMessage$i.txt"
+    
+    Write-Host "Running instance $i and creating $fileName..."
+    
+    # Run the executable and redirect output to the file
+    Start-Process -FilePath $exePath $filename
+}
