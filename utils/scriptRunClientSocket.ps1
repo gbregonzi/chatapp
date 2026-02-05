@@ -15,9 +15,3 @@ for ($i = 1; $i -le $Count; $i++) {
         -NoNewWindow #-Wait
     #Start-Sleep -Seconds 1
 }
-
-# Kill by process name
-##Stop-Process -Name "YourProgram" -Force
-
-# Kill by process ID
-##Stop-Process -Id 1234 -Force

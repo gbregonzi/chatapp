@@ -195,7 +195,8 @@ void ChatServer::sendProdcastMessage(int sd, const string& message){
     while(tries < 5)
     {
         if (sendMessage(sd, message)) {
-            m_Logger.log(LogLevel::Debug, "{}: sd:{} Sent message to client:{}", __func__, sd, message);
+            //m_Logger.log(LogLevel::Debug, "{}: sd:{} Sent message to client:{}", __func__, sd, message);
+            m_Logger.log(LogLevel::Debug, "{}: sd:{} Sent message to client", __func__, sd);
             break;
         } else {
             m_Logger.log(LogLevel::Error, "{}: Failed to send message to client:{}", __func__, sd);

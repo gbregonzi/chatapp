@@ -114,9 +114,9 @@ int ClientSocket::readMessage(string &message){
     {
         buffer[total_bytes_read] = '\0'; 
         m_Logger.log(LogLevel::Debug, "{}:Message size:{}",__func__, total_bytes_read + MESSAGE_SIZE_HEADER);
-        m_Logger.log(LogLevel::Debug, "{}:Received from server:{}",__func__, buffer);
-        cout << __func__ << ":Message size received: " << total_bytes_read + MESSAGE_SIZE_HEADER << "\n";
-        cout << __func__ << ":Message received: " << buffer << "\n";
+        //m_Logger.log(LogLevel::Debug, "{}:Received from server:{}",__func__, buffer);
+        //cout << __func__ << ":Message size received: " << total_bytes_read + MESSAGE_SIZE_HEADER << "\n";
+        //cout << __func__ << ":Message received: " << buffer << "\n";
         message = string(buffer);
         return total_bytes_read;
     }
@@ -165,7 +165,7 @@ int ClientSocket::sendMessage(const string& message)
     }
     cout << __func__ << ": Message size sent: " << bytes_sent << "\n";  
     m_Logger.log(LogLevel::Debug, "{}:Message size:{}",__func__, bytes_sent);
-    m_Logger.log(LogLevel::Debug, "{}:Sent to server:{}",__func__, message);
+    //m_Logger.log(LogLevel::Debug, "{}:Sent to server:{}",__func__, message);
 
     return bytes_sent;
 }
