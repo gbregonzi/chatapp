@@ -15,7 +15,7 @@ void usage(const char* _argv, const string& serverName, const string& logFileNam
 
 int main (int argc, const char* argv[]){
     
-    string serverName = "localhost";
+    string serverName{"localhost"};
     string portNumber{to_string(PORT)};
     string logFileName{"chatServer.log"};
 

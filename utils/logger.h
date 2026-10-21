@@ -19,8 +19,8 @@ constexpr size_t MAX_LOG_FILE_SIZE = 10000000; // 10 MB
 #ifdef _WIN32
     #include <format>
     template<typename... Args>
-    inline string formatString(const string& fmt, Args&&... args) {
-        return vformat(fmt, make_format_args(forward<Args>(args)...));
+    inline string formatString(string_view fmt, Args&&... args) {
+        return vformat(fmt, make_format_args(args...));
     }
 #else
     #include <fmt/core.h>

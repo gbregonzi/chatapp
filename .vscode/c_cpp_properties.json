@@ -4,8 +4,8 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "d:/Development/C++/vcpkg/installed/**",
-                "d:/Development/C++/chatapp/**"
+                "d:/DRIVE_D/Development/C++/vcpkg/installed/**",
+                "d:/DRIVE_D/Development/C++/chatapp/**"
             ],
             "defines": [
                 "_DEBUG",
